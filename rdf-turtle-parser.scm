@@ -459,26 +459,26 @@
 ;;;; URI Utilities
 
 (define rdf-namespace
-  (string->uri "http://www.w3.org/1999/02/22-rdf-syntax-ns#"))
+  (string->uri "http://www.w3.org/1999/02/22-rdf-syntax-ns"))
 
 (define (rdf-uri content)
   (merge-uris (string->uri content) rdf-namespace))
 
-(define rdf:type (rdf-uri "type"))
-(define rdf:first (rdf-uri "first"))
-(define rdf:rest (rdf-uri "rest"))
-(define rdf:nil (rdf-uri "nil"))
+(define rdf:type (rdf-uri "#type"))
+(define rdf:first (rdf-uri "#first"))
+(define rdf:rest (rdf-uri "#rest"))
+(define rdf:nil (rdf-uri "#nil"))
 
 (define xsd-namespace
-  (string->uri "http://www.w3.org/2001/XMLSchema#"))
+  (string->uri "http://www.w3.org/2001/XMLSchema"))
 
 (define (xsd-uri content)
   (merge-uris (string->uri content) xsd-namespace))
 
-(define xsd:boolean (xsd-uri "boolean"))
-(define xsd:decimal (xsd-uri "decimal"))
-(define xsd:double (xsd-uri "double"))
-(define xsd:integer (xsd-uri "integer"))
+(define xsd:boolean (xsd-uri "#boolean"))
+(define xsd:decimal (xsd-uri "#decimal"))
+(define xsd:double (xsd-uri "#double"))
+(define xsd:integer (xsd-uri "#integer"))
 
 ;;;; RDF Data Structures
 
