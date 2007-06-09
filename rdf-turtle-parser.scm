@@ -137,13 +137,13 @@
                  (turtle-parser:sole (turtle-parser:resource namespace-map))))
 
 (define-parser (turtle-parser:resource namespace-map)
-  (parser:choice
-   (*parser ((uri-text (turtle-parser:uri-ref)))
-     (cond ((maybe-string->uri uri-text) => parser:return)
-           (else
-            (parser:error
-             (string-append "Malformed URI text `" uri-text "'")))))
-   (turtle-parser:qname namespace-map)))
+  (*parser ((uri-text
+             (parser:choice (turtle-parser:uri-ref)
+                            (turtle-parser:qname namespace-map))))
+    (cond ((maybe-string->uri uri-text) => parser:return)
+          (else
+           (parser:error
+            (string-append "Malformed URI text `" uri-text "'"))))))
 
 (define-parser (turtle-parser:uri-ref)
   (parser:list->string
