@@ -509,7 +509,7 @@
   (write-string host output-port)
   (if port
       (begin (write-string ":" output-port)
-             (write-string port output-port))))
+             (write-string (number->string port #d10) output-port))))
 
 (define (write-path path output-port)
   (let loop ((segments path))
