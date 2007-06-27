@@ -54,14 +54,15 @@
 (define (uri-fragment uri)
   (%uri-fragment (guarantee-uri uri 'URI-FRAGMENT)))
 
+;;; If the argument to URI-HASH is a string, we absolutely cannot just
+;;; match it against the URI matcher and then get its hash without
+;;; parsing it into its components and then computing the hash.  This
+;;; is because we must canonicalize the percent-encoding, or equivalent
+;;; URI strings would be hashed differently, which is a Bad Thing for
+;;; security.
+
 (define (uri-hash uri)
-  (define (lose) (error "Invalid URI:" uri 'URI-HASH))
-  (cond ((uri? uri) (%uri-hash uri))
-        ((string? uri)
-         (if (match-string? (uri-matcher:uri-reference) uri)
-             (string-hash uri)
-             (lose)))
-        (else (lose))))
+  (%uri-hash (guarantee-uri uri 'URI-HASH)))
 
 (define (uri=? a b)
   (eq? (guarantee-uri a 'URI=?)
