@@ -460,7 +460,7 @@
        (or (soft-intern uri-camp string)
            (parse-string (parser:complete parser)
                          string
-                         (lambda (perror) perror #f)))))
+                         (lambda (perror stream) perror stream #f)))))
 
 (define (%string->uri parser string caller)
   (if (not (string? string))
@@ -468,7 +468,8 @@
       (or (soft-intern uri-camp string)
           (parse-string (parser:complete parser)
                         string
-                        (lambda (perror)
+                        (lambda (perror stream)
+                          stream        ;ignore
                           (apply error "Malformed URI:" string caller
                                  `(at position ,(parse-error/position perror))
                                  ;; This is a little silly.
