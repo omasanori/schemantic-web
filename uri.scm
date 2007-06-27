@@ -836,12 +836,9 @@
 
 (define (uri-matcher:ip-literal)
   (matcher:sequence (matcher:char= #\[)
-                    (matcher:choice (uri-matcher:ipv6-address)
-                                    (uri-matcher:ipvfuture))
+                    (matcher:choice (uri-matcher:ipvfuture)
+                                    (uri-matcher:ipv6-address))
                     (matcher:char= #\])))
-
-(define (uri-matcher:ipv6-address)
-  (matcher:error "IPv6 addresses not yet supported."))
 
 (define (uri-matcher:ipvfuture)
   (matcher:sequence
@@ -891,6 +888,52 @@
   (matcher:sequence (matcher:char= #\%)
                     (matcher:char-in-set char-set:hex-digit)
                     (matcher:char-in-set char-set:hex-digit)))
+
+;;;;;; The Hair of Matching IPv6 Addresses
+
+;;; At least this is a nice example of how to easily make hairy parsers
+;;; locally concise.
+
+(define (uri-matcher:ipv6-address)
+  (let ((seq matcher:sequence)
+        (:: (matcher:sequence (matcher:char= #\:) (matcher:char= #\:)))
+        (h16 (uri-matcher:h16))
+        (ls32 (uri-matcher:ls32))
+        (n-h16: uri-matcher:h16-exactly)
+        (n*-h16: uri-matcher:h16-at-least)
+        (? matcher:optional))
+    (matcher:deep-choice
+     (seq                               (n-h16: 6)      ls32)
+     (seq                       ::      (n-h16: 5)      ls32)
+     (seq (? (n*-h16: 0))       ::      (n-h16: 4)      ls32)
+     (seq (? (n*-h16: 1))       ::      (n-h16: 3)      ls32)
+     (seq (? (n*-h16: 2))       ::      (n-h16: 2)      ls32)
+     (seq (? (n*-h16: 3))       ::      (n-h16: 1)      ls32)
+     (seq (? (n*-h16: 4))       ::                      ls32)
+     (seq (? (n*-h16: 5))       ::                      h16)
+     (seq (? (n*-h16: 6))       ::))))
+
+(define (uri-matcher:h16)
+  (matcher:between 1 4 (matcher:char-in-set char-set:hex-digit)))
+
+(define (uri-matcher:ls32)
+  (matcher:deep-choice
+   (matcher:sequence (uri-matcher:h16)
+                     (matcher:char= #\:)
+                     (uri-matcher:h16))
+   (uri-matcher:ipv4-address)))
+
+(define (uri-matcher:h16-exactly number)
+  (matcher:exactly number
+    (matcher:sequence (uri-matcher:h16)
+                      (matcher:char= #\:))))
+
+(define (uri-matcher:h16-at-least number)
+  (matcher:sequence
+   (matcher:at-least number
+     (matcher:sequence (uri-matcher:h16)
+                       (matcher:char= #\:)))
+   (uri-matcher:h16)))
 
 ;;;; URI-Related Character Sets
 
