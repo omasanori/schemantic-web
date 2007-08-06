@@ -60,6 +60,47 @@
         `("URI-authority" ,(uri-authority-string authority))))
     ))
 
+;;;; RDF Structures
+
+(define-structure rdf rdf-interface
+  (open scheme
+        srfi-9                          ;define-record-type
+        srfi-23                         ;error
+        uris
+        )
+  (optimize auto-integrate)
+  (files rdf)
+
+  ;; Make RDF data structures print nicely.
+  (open (subset define-record-types (define-record-discloser)))
+  (begin
+
+    (define-record-discloser <rdf-triple>
+      (lambda (triple)
+        (list 'RDF-TRIPLE
+              (let ((subject (rdf-triple/subject triple)))
+                (cond ((rdf-uri-ref? subject) (rdf-uri-ref->string subject))
+                      ((rdf-bnode? subject) `(BNODE ,(rdf-bnode/name subject)))
+                      (else `(ILLEGAL-SUBJECT ,subject))))
+              (let ((predicate (rdf-triple/predicate triple)))
+                (if (rdf-uri-ref? predicate)
+                    (rdf-uri-ref->string predicate)
+                    `(ILLEGAL-PREDICATE ,predicate)))
+              (let ((object (rdf-triple/object triple)))
+                (cond ((rdf-uri-ref? object) (rdf-uri-ref->string object))
+                      ((rdf-bnode? object) `(BNODE ,(rdf-bnode/name object)))
+                      ((rdf-literal? object)
+                       `(LITERAL ,@(disclose-rdf-literal object)))
+                      (else `(ILLEGAL-OBJECT ,object)))))))
+
+    (define-record-discloser <rdf-bnode>
+      (lambda (bnode)
+        (list 'RDF-BNODE (rdf-bnode/name bnode))))
+
+    (define-record-discloser <rdf-literal>
+      (lambda (literal)
+        (cons 'RDF-LITERAL (disclose-rdf-literal literal))))))
+
 ;;;; RDF Parsers
 
 (define-structure rdf-nt-parser rdf-nt-parser-interface

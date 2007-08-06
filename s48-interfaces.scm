@@ -61,6 +61,38 @@
     string->relative-uri
     ))
 
+;;;; RDF Utilities
+
+(define-interface rdf-interface
+  (export
+    make-rdf-triple
+    rdf-triple?
+    rdf-triple/subject
+    rdf-triple/predicate
+    rdf-triple/object
+    rdf-triple=?
+
+    make-rdf-bnode
+    rdf-bnode?
+    rdf-bnode/name
+    rdf-bnode=?
+
+    make-rdf-plain-literal
+    make-rdf-typed-literal
+    rdf-literal?
+    rdf-plain-literal?
+    rdf-typed-literal?
+    rdf-literal/lexical-form
+    rdf-plain-literal/language-tag
+    rdf-typed-literal/datatype-uri
+    rdf-literal=?
+
+    rdf-uri-ref?
+    rdf-uri-ref->string
+    string->rdf-uri-ref
+    rdf-uri-ref=?
+    ))
+
 ;;;; Parsers
 
 (define-interface uri-parser-interface
