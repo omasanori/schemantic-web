@@ -55,11 +55,11 @@
                  (nt-parser:literal)))
 
 (define (nt-parser:resource)
-  (*parser ((uri-text (nt-parser:uri-ref)))
-    (cond ((maybe-string->uri uri-text) => parser:return)
-          (else
-           (parser:error
-            (string-append "Malformed URI text `" uri-text "'"))))))
+  (*parser ((uri-ref (nt-parser:uri-ref)))
+    (if (match-string? (uri-matcher:uri-reference) uri-ref)
+        (parser:return (string->rdf-uri-ref uri-ref))
+        (parser:error
+         (string-append "Malformed URI text `" uri-ref "'")))))
 
 (define (nt-parser:blank)
   (*parser ((node-id (nt-parser:node-id)))
@@ -79,18 +79,20 @@
       (matcher:repeated (matcher:char-in-set nt-char-set:name-trailing))))))
 
 (define (nt-parser:literal)
-  (*parser ((text (nt-parser:string))
-            (type
-             (parser:choice (nt-parser:string-language)
-                            (nt-parser:string-datatype)
-                            (parser:return #f))))
-    (parser:return (make-rdf-literal text type))))
+  (*parser ((lexical-form (nt-parser:string)))
+    (parser:choice
+     (*parser ((datatype-uri (nt-parser:literal-datatype-uri)))
+       (parser:return (make-rdf-typed-literal lexical-form datatype-uri)))
+     (*parser ((language-tag
+                (parser:choice (nt-parser:literal-language-tag)
+                               (parser:return #f))))
+       (parser:return (make-rdf-plain-literal lexical-form language-tag))))))
 
-(define (nt-parser:string-datatype)
+(define (nt-parser:literal-datatype-uri)
   (parser:sequence (parser:string= "^^")
                    (nt-parser:resource)))
 
-(define (nt-parser:string-language)
+(define (nt-parser:literal-language-tag)
   (parser:sequence
    (parser:char= #\@)
    (parser:match->string
@@ -180,21 +182,3 @@
   (char-set-union char-set:letter
                   char-set:digit
                   (string->char-set "!#$&'()*+,-./:;=?@_~")))
-
-;;;; RDF Data Structures
-
-(define (make-rdf-triple subject predicate object)
-  (list 'RDF-TRIPLE subject predicate object))
-
-(define *rdf-bnode-id* 0)
-
-(define (make-rdf-bnode . name-option)
-  (list 'RDF-BNODE
-        (if (pair? name-option)
-            (car name-option)
-            (let ((id *rdf-bnode-id*))
-              (set! *rdf-bnode-id* (+ id 1))
-              id))))
-
-(define (make-rdf-literal text type)
-  (list 'RDF-LITERAL type text))
