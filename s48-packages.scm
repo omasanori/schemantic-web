@@ -131,6 +131,8 @@
         srfi-23                         ;Error
         ascii
         uris
+        uri-parser
+        rdf
         matcher-combinators
         text-matcher-combinators
         parser-combinators

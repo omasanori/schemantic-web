@@ -137,13 +137,12 @@
                  (turtle-parser:sole (turtle-parser:resource namespace-map))))
 
 (define-parser (turtle-parser:resource namespace-map)
-  (*parser ((uri-text
+  (*parser ((uri-ref
              (parser:choice (turtle-parser:uri-ref)
                             (turtle-parser:qname namespace-map))))
-    (cond ((maybe-string->uri uri-text) => parser:return)
-          (else
-           (parser:error
-            (string-append "Malformed URI text `" uri-text "'"))))))
+    (if (match-string? (uri-matcher:uri-reference) uri-ref)
+        (parser:return (string->rdf-uri-ref uri-ref))
+        (parser:error (string-append "Malformed URI text `" uri-ref "'")))))
 
 (define-parser (turtle-parser:uri-ref)
   (parser:list->string
@@ -157,14 +156,17 @@
                  (turtle-parser:boolean)))
 
 (define-parser (turtle-parser:string namespace-map)
-  (*parser ((text (turtle-parser:quoted-string))
-            (type
-             (parser:choice (turtle-parser:string-language)
-                            (turtle-parser:string-datatype namespace-map)
-                            (parser:return #f))))
-    (parser:return (make-rdf-literal text type))))
+  (*parser ((lexical-form (turtle-parser:quoted-string)))
+    (parser:choice
+     (*parser ((datatype-uri
+                (turtle-parser:literal-datatype-uri namespace-map)))
+       (parser:return (make-rdf-typed-literal lexical-form datatype-uri)))
+     (*parser ((language-tag
+                (parser:choice (turtle-parser:literal-language-tag)
+                               (parser:return #f))))
+       (parser:return (make-rdf-plain-literal lexical-form language-tag))))))
 
-(define-parser (turtle-parser:string-language)
+(define-parser (turtle-parser:literal-language-tag)
   (parser:sequence
    (parser:char= #\@)
    (parser:match->string
@@ -177,7 +179,7 @@
        (matcher:at-least 1
          (matcher:char-in-set turtle-char-set:language-trailing))))))))
 
-(define-parser (turtle-parser:string-datatype namespace-map)
+(define-parser (turtle-parser:literal-datatype-uri namespace-map)
   (parser:sequence (parser:string= "^^")
                    (turtle-parser:resource namespace-map)))
 
@@ -185,7 +187,7 @@
   (*parser ((boolean
              (parser:choice (parser:string= "true")
                             (parser:string= "false"))))
-    (parser:return (make-rdf-literal boolean xsd:boolean))))
+    (parser:return (make-rdf-typed-literal boolean xsd:boolean))))
 
 ;;;;; Numbers
 
@@ -279,7 +281,7 @@
 (define-parser (turtle-parser:bnode:empty)
   (parser:backtrackable
    (*parser (((parser:string= "[]")))
-     (parser:return (make-rdf-bnode)))))
+     (parser:return (make-anonymous-rdf-bnode)))))
 
 (define-parser (turtle-parser:bnode:compound namespace-map)
   (*parser (((parser:char= #\[))
@@ -289,7 +291,7 @@
             ((turtle-parser:ws*))       ;++ I think this is unnecessary.
             ((parser:char= #\])))
     (parser:return
-     (let ((bnode (make-rdf-bnode)))
+     (let ((bnode (make-anonymous-rdf-bnode)))
        (cons bnode
              (append (map (lambda (predicate.object)
                             (make-rdf-triple bnode
@@ -310,7 +312,7 @@
       (let ((items (map car item.triples-list))
             (triples (append-map cdr item.triples-list)))
         (if (pair? items)
-            (let ((bnode (make-rdf-bnode)))
+            (let ((bnode (make-anonymous-rdf-bnode)))
               (cons bnode
                     (turtle-collection->triples items bnode triples)))
             (cons rdf:nil triples))))))
@@ -319,7 +321,7 @@
   (let ((item (car items)) (items (cdr items)))
     (cons (make-rdf-triple bnode rdf:first item)
           (if (pair? items)
-              (let ((bnode* (make-rdf-bnode)))
+              (let ((bnode* (make-anonymous-rdf-bnode)))
                 (cons (make-rdf-triple bnode rdf:rest bnode*)
                       (turtle-collection->triples items bnode* triples)))
               (cons (make-rdf-triple bnode rdf:rest rdf:nil) triples)))))
@@ -372,6 +374,22 @@
 (define-parser (parser:hex-string length)
   (parser:list->string
    (parser:exactly length (parser:char-in-set char-set:hex-digit))))
+
+;++ This should be changed so that it is part of the Turtle parse
+;++ context.
+
+(define *turtle-bnode-number* 0)
+
+(define (reset-turtle-bnode-number)
+  (set! *turtle-bnode-number* 0))
+
+(define (allocate-turtle-bnode-number)
+  (let ((number *turtle-bnode-number*))
+    (set! *turtle-bnode-number* (+ number 1))
+    number))
+
+(define (make-anonymous-rdf-bnode)
+  (make-rdf-bnode (allocate-turtle-bnode-number)))
 
 ;;;; Turtle Character Sets
 
@@ -479,21 +497,3 @@
 (define xsd:decimal (xsd-uri "#decimal"))
 (define xsd:double (xsd-uri "#double"))
 (define xsd:integer (xsd-uri "#integer"))
-
-;;;; RDF Data Structures
-
-(define (make-rdf-triple subject predicate object)
-  (list 'RDF-TRIPLE subject predicate object))
-
-(define *rdf-bnode-id* 0)
-
-(define (make-rdf-bnode . name-option)
-  (list 'RDF-BNODE
-        (if (pair? name-option)
-            (car name-option)
-            (let ((id *rdf-bnode-id*))
-              (set! *rdf-bnode-id* (+ id 1))
-              id))))
-
-(define (make-rdf-literal text type)
-  (list 'RDF-LITERAL type text))
