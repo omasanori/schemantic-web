@@ -131,6 +131,18 @@
   (optimize auto-integrate)
   (files rdf-nt-parser))
 
+(define-structure rdf-nt-parser-tests (export rdf-nt-parser-tests)
+  (open scheme
+        srfi-23                         ;error
+        simple-testing
+        rdf
+        rdf-nt-parser
+        text-parser-combinators
+        parse-errors
+        )
+  (optimize auto-integrate)
+  (files test-rdf-nt-parser))
+
 (define-structure rdf-turtle-parser rdf-turtle-parser-interface
   (open scheme
         srfi-1                          ;List Library
