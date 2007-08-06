@@ -160,4 +160,16 @@
   (optimize auto-integrate)
   (files rdf-turtle-parser))
 
+(define-structure rdf-turtle-parser-tests (export rdf-turtle-parser-tests)
+  (open scheme
+        srfi-23                         ;error
+        simple-testing
+        rdf
+        rdf-turtle-parser
+        text-parser-combinators
+        parse-errors
+        )
+  (optimize auto-integrate)
+  (files test-rdf-turtle-parser))
+
 ;; (define-structure rdf-xml-parser ...)
