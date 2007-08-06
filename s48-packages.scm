@@ -5,6 +5,8 @@
 
 ;;; This code is written by Taylor R. Campbell and placed in the Public
 ;;; Domain.  All warranties are disclaimed.
+
+;;;; URIs
 
 (define-structures ((uris uris-interface)
                     (uri-parser uri-parser-interface))
@@ -63,6 +65,11 @@
         (lambda (authority)
           `(,symbol ,(uri-authority-string authority)))))
     ))
+
+(define-structure uri-tests (export uri-tests)
+  (open scheme simple-testing uris uri-parser)
+  (optimize auto-integrate)
+  (files test-uri))
 
 ;;;; RDF Structures
 
