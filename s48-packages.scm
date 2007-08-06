@@ -52,12 +52,16 @@
   ;; Make URIs print nicely.
   (open (subset define-record-types (define-record-discloser)))
   (begin
+    ;; Using symbols for the tag avoids quotes when pretty-printed.
+    ;; Using STRING->SYMBOL lets us maintain the case.
     (define-record-discloser <uri>
-      (lambda (uri)
-        `("URI" ,(%uri-string uri))))
+      (let ((symbol (string->symbol "URI")))
+        (lambda (uri)
+          `(,symbol ,(%uri-string uri)))))
     (define-record-discloser <uri-authority>
-      (lambda (authority)
-        `("URI-authority" ,(uri-authority-string authority))))
+      (let ((symbol (string->symbol "URI-authority")))
+        (lambda (authority)
+          `(,symbol ,(uri-authority-string authority)))))
     ))
 
 ;;;; RDF Structures
