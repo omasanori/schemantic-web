@@ -18,9 +18,9 @@
   (test-uri= (make-uri 'SCHEME
                        (make-uri-authority "user" "host" 123)
                        '("" "path" "to" "file")
-                       "fragment"
-                       "query")
-    (string->uri "scheme://user@host:123/path/to/file#fragment?query")))
+                       "query"
+                       "fragment")
+    (string->uri "scheme://user@host:123/path/to/file?query#fragment")))
 
 ;;;; Merging
 
