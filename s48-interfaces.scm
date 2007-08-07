@@ -115,4 +115,5 @@
 (define-interface rdf-turtle-parser-interface
   (export
     turtle-parser:document
+    make-turtle-parser-context
     ))
