@@ -146,6 +146,7 @@
 (define-structure rdf-turtle-parser rdf-turtle-parser-interface
   (open scheme
         srfi-1                          ;List Library
+        srfi-9                          ;define-record-type
         srfi-14                         ;Character-Set Library
         srfi-23                         ;Error
         ascii

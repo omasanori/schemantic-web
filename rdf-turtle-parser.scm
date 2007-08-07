@@ -7,166 +7,137 @@
 ;;; Domain.  All warranties are disclaimed.
 
 ;;; RDF Turtle is described at <http://www.dajobe.org/2004/01/turtle/>.
-
-(define-parser (turtle-parser:document)
-  (let loop ((triples '())
-             (namespace-map (make-namespace-map)))
-    (parser:sequence
-     (turtle-parser:ws*)                ;Simplify production rule [2]
-     (parser:choice
-      (*parser (((parser:end)))
-        (parser:return (reverse triples)))
-      (*parser ((statement (turtle-parser:statement namespace-map)))
-        (case (car statement)
-          ((PREFIX)
-           (loop triples
-                 (let ((abbreviation (cadr statement))
-                       (expansion (caddr statement)))
-                   (add-namespace namespace-map abbreviation expansion))))
-          ((TRIPLES)
-           (loop (append-reverse (cdr statement) triples)
-                 namespace-map))
-          (else
-           (error "Bogus statement:" statement))))))))
 
-(define-parser (turtle-parser:statement namespace-map)
-  (*parser ((statement
-             (parser:choice (turtle-parser:directive)
-                            (turtle-parser:triples namespace-map)))
-            ((turtle-parser:ws*))
-            ((parser:char= #\.)))
-    (parser:return statement)))
+(define-parser turtle-parser:document
+  (parser:sequence
+   (parser:noise:repeated-until (parser:end) turtle-parser:statement)
+   (parser:with-context turtle-context/triples)))
 
-(define-parser (turtle-parser:directive)
-  (*parser (((parser:string= "@prefix"))
-            ((turtle-parser:ws+))
-            (abbreviation (parser:optional #f (turtle-parser:prefix-name)))
-            ((parser:char= #\:))
-            ((turtle-parser:ws+))
-            (expansion (turtle-parser:uri-ref)))
-    (parser:return `(PREFIX ,abbreviation ,expansion))))
+(define-parser turtle-parser:statement
+  (parser:choice (parser:sequence (parser:choice turtle-parser:directive
+                                                 turtle-parser:triples)
+                                  turtle-parser:ws*
+                                  (parser:char= #\.)
+                                  turtle-parser:ws*)
+                 turtle-parser:ws+))
 
-(define-parser (turtle-parser:triples namespace-map)
-  (*parser ((subject.triples (turtle-parser:subject namespace-map))
-            ((turtle-parser:ws+))
-            (predicate/object-list.triples
-             (turtle-parser:predicate/object-list namespace-map)))
-    (parser:return
-     `(TRIPLES ,@(append (map (let ((subject (car subject.triples)))
-                                (lambda (predicate.object)
-                                  (make-rdf-triple subject
-                                                   (car predicate.object)
-                                                   (cdr predicate.object))))
-                              (car predicate/object-list.triples))
-                         (cdr subject.triples)
-                         (cdr predicate/object-list.triples))))))
+(define-parser turtle-parser:directive
+  (*parser
+      ((parser:string= "@prefix"))
+      (turtle-parser:ws+)
+      (prefix-name (parser:optional #f turtle-parser:prefix-name))
+      ((parser:char= #\:))
+      (turtle-parser:ws+)
+      (prefix-expansion turtle-parser:uri-ref)
+    (turtle:add-prefix-expansion prefix-name prefix-expansion)))
+
+(define-parser turtle-parser:triples
+  (*parser
+      (subject turtle-parser:subject)
+      (turtle-parser:ws+)
+      (predicate/object-list turtle-parser:predicate/object-list)
+    (turtle:add-triples
+     (map (lambda (predicate/object)
+            (make-rdf-triple subject
+                             (car predicate/object)
+                             (cdr predicate/object)))
+          predicate/object-list))))
 
 ;;;; Predicate/Object Lists
 
-(define-parser (turtle-parser:predicate/object-list namespace-map)
-  (*parser ((predicate (turtle-parser:verb namespace-map))
-            ((turtle-parser:ws+))
-            (objects.triples (turtle-parser:object-list namespace-map))
-            (predicate/object-list.triples
-             (turtle-parser:predicate/object-list-continuation namespace-map))
-            ((turtle-parser:ws*))
-            ((parser:optional-noise (parser:char= #\;))))
+(define-parser turtle-parser:predicate/object-list
+  (*parser
+      (predicate turtle-parser:verb)
+      (turtle-parser:ws+)
+      (objects turtle-parser:object-list)
+      (predicate/object-list turtle-parser:predicate/object-list-continuation)
+      (turtle-parser:ws*)
+      ((parser:optional-noise (parser:char= #\;)))
     (parser:return
-     (cons (append (map (lambda (object)
-                          (cons predicate object))
-                        (car objects.triples))
-                   (append-map car predicate/object-list.triples))
-           (append (cdr objects.triples)
-                   (append-map cdr predicate/object-list.triples))))))
+     (append (map (lambda (object)
+                    (cons predicate object))
+                  objects)
+             predicate/object-list))))
 
-(define-parser (turtle-parser:verb namespace-map)
+(define-parser turtle-parser:verb
   (parser:choice (parser:backtrackable
-                  (*parser (((parser:char= #\a))
-                            ((parser:peek (turtle-parser:ws))))
+                  (*parser
+                      ((parser:char= #\a))
+                      ((parser:peek turtle-parser:ws))
                     (parser:return rdf:type)))
-                 (turtle-parser:predicate namespace-map)))
+                 turtle-parser:predicate))
 
-(define-parser (turtle-parser:object-list namespace-map)
-  (*parser ((object.triples (turtle-parser:object namespace-map))
-            ((turtle-parser:ws*))
-            (objects.triples
-             (parser:repeated
-              (*parser (((parser:char= #\,))
-                        ((turtle-parser:ws*))
-                        (object.triples (turtle-parser:object namespace-map))
-                        ((turtle-parser:ws*)))
-                (parser:return object.triples)))))
-    (parser:return
-     (cons (cons (car object.triples)
-                 (map car objects.triples))
-           (append (cdr object.triples)
-                   (append-map cdr objects.triples))))))
+(define-parser turtle-parser:object-list
+  (*parser
+      (object turtle-parser:object)
+      (turtle-parser:ws*)
+      (objects
+       (parser:list:repeated
+        (*parser
+            ((parser:char= #\,))
+            (turtle-parser:ws*)
+            (object turtle-parser:object)
+            (turtle-parser:ws*)
+          (parser:return object))))
+    (parser:return (cons object objects))))
 
-(define-parser (turtle-parser:predicate/object-list-continuation namespace-map)
-  (parser:repeated
-   (*parser (((turtle-parser:ws*))
-             ((parser:char= #\;))
-             ((turtle-parser:ws*))
-             (predicate (turtle-parser:verb namespace-map))
-             ((turtle-parser:ws+))
-             (objects.triples (turtle-parser:object-list namespace-map)))
+(define-parser turtle-parser:predicate/object-list-continuation
+  (parser:list:repeated
+   (*parser
+       (turtle-parser:ws*)
+       ((parser:char= #\;))
+       (turtle-parser:ws*)
+       (predicate turtle-parser:verb)
+       (turtle-parser:ws+)
+       (objects turtle-parser:object-list)
      (parser:return
-      (cons (map (lambda (object)
-                   (cons predicate object))
-                 (car objects.triples))
-            (cdr objects.triples))))))
-
-;;; `Sole' means that it won't generate any auxiliary triples.
-
-(define-parser (turtle-parser:sole parser)
-  (*parser ((item parser))
-    (parser:return (cons item '()))))
+      (map (lambda (object)
+             (cons predicate object))
+           objects)))))
 
 ;;;; Resources
 
-(define-parser (turtle-parser:subject namespace-map)
-  (parser:choice (turtle-parser:sole (turtle-parser:resource namespace-map))
-                 (turtle-parser:blank namespace-map)))
+(define-parser turtle-parser:subject
+  (parser:choice turtle-parser:resource
+                 turtle-parser:blank))
 
-(define-parser (turtle-parser:predicate namespace-map)
-  (turtle-parser:resource namespace-map))
+(define-parser turtle-parser:predicate
+  turtle-parser:resource)
 
-(define-parser (turtle-parser:object namespace-map)
-  (parser:choice (turtle-parser:sole (turtle-parser:literal namespace-map))
-                 (turtle-parser:blank namespace-map)
-                 (turtle-parser:sole (turtle-parser:resource namespace-map))))
+(define-parser turtle-parser:object
+  (parser:choice turtle-parser:literal
+                 turtle-parser:blank
+                 turtle-parser:resource))
 
-(define-parser (turtle-parser:resource namespace-map)
-  (*parser ((uri-ref
-             (parser:choice (turtle-parser:uri-ref)
-                            (turtle-parser:qname namespace-map))))
-    (if (match-string? (uri-matcher:uri-reference) uri-ref)
+(define-parser turtle-parser:resource
+  (*parser (uri-ref
+            (parser:choice turtle-parser:uri-ref turtle-parser:qname))
+    (if (match-string? uri-matcher:uri-reference uri-ref)
         (parser:return (string->rdf-uri-ref uri-ref))
-        (parser:error (string-append "Malformed URI text `" uri-ref "'")))))
+        (parser:error
+         (string-append "Malformed URI reference `" uri-ref "'")))))
 
-(define-parser (turtle-parser:uri-ref)
-  (parser:list->string
-   (parser:bracketed* (parser:char= #\<) (parser:char= #\>)
-     (turtle-parser:string-char turtle-char-set:ucharacter
-                                turtle-string-escapes:uri-ref))))
+(define-parser turtle-parser:uri-ref
+  (parser:bracketed-string (parser:char= #\<) (parser:char= #\>)
+    (turtle-parser:string-char turtle-char-set:ucharacter
+                               turtle-string-escapes:uri-ref)))
 
-(define-parser (turtle-parser:literal namespace-map)
-  (parser:choice (turtle-parser:string namespace-map)
-                 (turtle-parser:number)
-                 (turtle-parser:boolean)))
+(define-parser turtle-parser:literal
+  (parser:choice turtle-parser:string
+                 turtle-parser:number
+                 turtle-parser:boolean))
 
-(define-parser (turtle-parser:string namespace-map)
-  (*parser ((lexical-form (turtle-parser:quoted-string)))
+(define-parser turtle-parser:string
+  (*parser (lexical-form turtle-parser:quoted-string)
     (parser:choice
-     (*parser ((datatype-uri
-                (turtle-parser:literal-datatype-uri namespace-map)))
+     (*parser (datatype-uri turtle-parser:literal-datatype-uri)
        (parser:return (make-rdf-typed-literal lexical-form datatype-uri)))
-     (*parser ((language-tag
-                (parser:choice (turtle-parser:literal-language-tag)
-                               (parser:return #f))))
+     (*parser (language-tag
+               (parser:choice turtle-parser:literal-language-tag
+                              (parser:return #f)))
        (parser:return (make-rdf-plain-literal lexical-form language-tag))))))
 
-(define-parser (turtle-parser:literal-language-tag)
+(define-parser turtle-parser:literal-language-tag
   (parser:sequence
    (parser:char= #\@)
    (parser:match->string
@@ -179,19 +150,18 @@
        (matcher:at-least 1
          (matcher:char-in-set turtle-char-set:language-trailing))))))))
 
-(define-parser (turtle-parser:literal-datatype-uri namespace-map)
-  (parser:sequence (parser:string= "^^")
-                   (turtle-parser:resource namespace-map)))
+(define-parser turtle-parser:literal-datatype-uri
+  (parser:sequence (parser:string= "^^") turtle-parser:resource))
 
-(define-parser (turtle-parser:boolean)
-  (*parser ((boolean
-             (parser:choice (parser:string= "true")
-                            (parser:string= "false"))))
+(define-parser turtle-parser:boolean
+  (*parser (boolean
+            (parser:choice (parser:string= "true")
+                           (parser:string= "false")))
     (parser:return (make-rdf-typed-literal boolean xsd:boolean))))
 
 ;;;;; Numbers
 
-(define-parser (turtle-parser:number)
+(define-parser turtle-parser:number
   (parser:sequence (parser:choice (parser:char= #\+)
                                   (parser:char= #\-)
                                   (parser:char-in-set char-set:digit))
@@ -199,33 +169,32 @@
 
 ;;;;; Strings
 
-(define-parser (turtle-parser:quoted-string)
+(define-parser turtle-parser:quoted-string
   (parser:sequence
    (parser:char= #\")
    (parser:choice
     (parser:sequence (parser:backtrackable (parser:string= "\"\""))
-                     (turtle-parser:long-string-contents))
-    (turtle-parser:short-string-contents))))
+                     turtle-parser:long-string-contents)
+    turtle-parser:short-string-contents)))
 
-(define-parser (turtle-parser:long-string-contents)
-  (parser:list->string
-   (parser:repeated-until (parser:backtrackable (parser:string= "\"\"\""))
-     (turtle-parser:string-char turtle-char-set:lcharacter
-                                turtle-string-escapes:long-string))))
+(define-parser turtle-parser:long-string-contents
+  (parser:string:repeated-until
+      (parser:backtrackable (parser:string= "\"\"\""))
+    (turtle-parser:string-char turtle-char-set:lcharacter
+                               turtle-string-escapes:long-string)))
 
-(define-parser (turtle-parser:short-string-contents)
-  (parser:list->string
-   (parser:repeated-until (parser:char= #\")
-     (turtle-parser:string-char turtle-char-set:scharacter
-                                turtle-string-escapes:short-string))))
+(define-parser turtle-parser:short-string-contents
+  (parser:string:repeated-until (parser:char= #\")
+    (turtle-parser:string-char turtle-char-set:scharacter
+                               turtle-string-escapes:short-string)))
 
 (define-parser (turtle-parser:string-char char-set escapes)
-  (parser:choice (*parser ((char (parser:char= #\\)))
+  (parser:choice (*parser (char (parser:char= #\\))
                    (turtle-parser:string-escape escapes))
                  (parser:char-in-set char-set)))
 
 (define-parser (turtle-parser:string-escape escapes)
-  (*parser ((escape-char (parser:char)))
+  (*parser (escape-char (parser:char))
     (cond ((char=? escape-char #\u) (turtle-parser:unicode-escape 4))
           ((char=? escape-char #\U) (turtle-parser:unicode-escape 8))
           ((assv escape-char escapes)
@@ -238,7 +207,7 @@
                            "'"))))))
 
 (define-parser (turtle-parser:unicode-escape length)
-  (*parser ((hex-string (parser:hex-string length)))
+  (*parser (hex-string (parser:hex-string length))
     (parser:return
      (let ((number (string->number hex-string #x10)))
        (if (< number ascii-limit)
@@ -264,91 +233,86 @@
 
 ;;;;; Blank Nodes
 
-(define-parser (turtle-parser:blank namespace-map)
-  (parser:choice (turtle-parser:sole (turtle-parser:bnode:named))
-                 (turtle-parser:sole (turtle-parser:bnode:empty))
-                 (turtle-parser:bnode:compound namespace-map)
-                 (turtle-parser:bnode:collection namespace-map)))
+(define-parser turtle-parser:blank
+  (parser:choice turtle-parser:bnode:named
+                 turtle-parser:bnode:empty
+                 turtle-parser:bnode:compound
+                 turtle-parser:bnode:collection))
 
-(define-parser (turtle-parser:bnode:named)
-  (*parser ((node-id (turtle-parser:node-id)))
+(define-parser turtle-parser:bnode:named
+  (*parser (node-id turtle-parser:node-id)
     (parser:return (make-rdf-bnode node-id))))
 
-(define-parser (turtle-parser:node-id)
-  (parser:sequence (parser:string= "_:")
-                   (turtle-parser:name)))
+(define-parser turtle-parser:node-id
+  (parser:sequence (parser:string= "_:") turtle-parser:name))
 
-(define-parser (turtle-parser:bnode:empty)
+(define-parser turtle-parser:bnode:empty
   (parser:backtrackable
-   (*parser (((parser:string= "[]")))
-     (parser:return (make-anonymous-rdf-bnode)))))
+   (parser:sequence (parser:string= "[]") turtle:new-anonymous-bnode)))
 
-(define-parser (turtle-parser:bnode:compound namespace-map)
-  (*parser (((parser:char= #\[))
-            ((turtle-parser:ws*))
-            (predicate/object-list.triples
-             (turtle-parser:predicate/object-list namespace-map))
-            ((turtle-parser:ws*))       ;++ I think this is unnecessary.
-            ((parser:char= #\])))
-    (parser:return
-     (let ((bnode (make-anonymous-rdf-bnode)))
-       (cons bnode
-             (append (map (lambda (predicate.object)
-                            (make-rdf-triple bnode
-                                             (car predicate.object)
-                                             (cdr predicate.object)))
-                          (car predicate/object-list.triples))
-                     (cdr predicate/object-list.triples)))))))
+(define-parser turtle-parser:bnode:compound
+  (*parser
+      ((parser:char= #\[))
+      (turtle-parser:ws*)
+      (predicate/object-list turtle-parser:predicate/object-list)
+      (turtle-parser:ws*)              ;++ I think this is unnecessary.
+      ((parser:char= #\]))
+      (bnode turtle:new-anonymous-bnode)
+      ((turtle:add-triples
+        (map (lambda (predicate/object)
+               (make-rdf-triple bnode
+                                (car predicate/object)
+                                (cdr predicate/object)))
+             predicate/object-list)))
+    (parser:return bnode)))
 
-(define-parser (turtle-parser:bnode:collection namespace-map)
-  (parser:map (parser:bracketed*
-                  (parser:sequence (parser:char= #\( )
-                                   (turtle-parser:ws*))
-                  (parser:char= #\) )
-                (*parser ((item.triples (turtle-parser:object namespace-map))
-                          ((turtle-parser:ws*)))
-                  (parser:return item.triples)))
-    (lambda (item.triples-list)
-      (let ((items (map car item.triples-list))
-            (triples (append-map cdr item.triples-list)))
-        (if (pair? items)
-            (let ((bnode (make-anonymous-rdf-bnode)))
-              (cons bnode
-                    (turtle-collection->triples items bnode triples)))
-            (cons rdf:nil triples))))))
+;;; The following ugliness is the obvious recursive parser translated
+;;; by hand according to the tail recursion modulo CONS pattern.
 
-(define (turtle-collection->triples items bnode triples)
-  (let ((item (car items)) (items (cdr items)))
-    (cons (make-rdf-triple bnode rdf:first item)
-          (if (pair? items)
-              (let ((bnode* (make-anonymous-rdf-bnode)))
-                (cons (make-rdf-triple bnode rdf:rest bnode*)
-                      (turtle-collection->triples items bnode* triples)))
-              (cons (make-rdf-triple bnode rdf:rest rdf:nil) triples)))))
+(define-parser turtle-parser:bnode:collection
+  (*parser ((parser:char= #\( ))
+      (turtle-parser:ws*)
+    (parser:choice
+     (parser:sequence (parser:char= #\) ) (parser:return rdf:nil))
+     (*parser (bnode turtle:new-anonymous-bnode)
+       (let loop ((pair bnode))
+         (*parser
+             (first turtle-parser:object)
+             (turtle-parser:ws*)
+             ((turtle:add-triple (make-rdf-triple pair rdf:first first)))
+           (parser:choice
+            (*parser
+                ((parser:char= #\) ))
+                ((turtle:add-triple (make-rdf-triple pair rdf:rest rdf:nil)))
+              (parser:return bnode))
+            (*parser
+                (rest turtle:new-anonymous-bnode)
+                ((turtle:add-triple (make-rdf-triple pair rdf:rest rest)))
+              (loop rest)))))))))
 
 ;;;; Names
 
-(define-parser (turtle-parser:qname namespace-map)
-  (*parser ((prefix (parser:optional #f (turtle-parser:prefix-name)))
-            ((parser:char= #\:))
-            (suffix (parser:optional #f (turtle-parser:name))))
-    (cond ((expand-namespace namespace-map prefix)
-           => (lambda (expansion)
-                (parser:return
-                 (if suffix
-                     (string-append expansion suffix)
-                     expansion))))
-          (else
-           (parser:error
-            (string-append "Unknown prefix `" prefix "'"))))))
+(define-parser turtle-parser:qname
+  (*parser
+      (prefix-name (parser:optional #f turtle-parser:prefix-name))
+      ((parser:char= #\:))
+      (suffix-text (parser:optional #f turtle-parser:name))
+      (prefix-expansion (turtle:expand-prefix prefix-name))
+    (if prefix-expansion
+        (parser:return
+         (if suffix-text
+             (string-append prefix-expansion suffix-text)
+             prefix-expansion))
+        (parser:error
+         (string-append "Unknown prefix `" prefix-name "'")))))
 
-(define-parser (turtle-parser:prefix-name)
+(define-parser turtle-parser:prefix-name
   (parser:match->string
    (matcher:sequence
     (matcher:char-in-set (char-set-delete turtle-char-set:name-initial #\_))
     (matcher:repeated (matcher:char-in-set turtle-char-set:name-trailing)))))
 
-(define-parser (turtle-parser:name)
+(define-parser turtle-parser:name
   (parser:match->string
    (matcher:sequence
     (matcher:char-in-set turtle-char-set:name-initial)
@@ -356,40 +320,24 @@
 
 ;;;; Miscellaneous
 
-(define-parser (turtle-parser:ws)
+(define-parser turtle-parser:ws
   (parser:choice (parser:char-in-set turtle-char-set:ws)
-                 (turtle-parser:comment)))
+                 turtle-parser:comment))
 
-(define-parser (turtle-parser:ws*)
-  (parser:repeated (turtle-parser:ws)))
+(define-parser turtle-parser:ws*
+  (parser:noise:repeated turtle-parser:ws))
 
-(define-parser (turtle-parser:ws+)
-  (parser:at-least 1 (turtle-parser:ws)))
+(define-parser turtle-parser:ws+
+  (parser:noise:at-least 1 turtle-parser:ws))
 
-(define-parser (turtle-parser:comment)
+(define-parser turtle-parser:comment
   (parser:sequence
    (parser:char= #\#)
-   (parser:repeated (parser:char-not-in-set turtle-char-set:line-break))))
+   (parser:noise:repeated
+    (parser:char-not-in-set turtle-char-set:line-break))))
 
 (define-parser (parser:hex-string length)
-  (parser:list->string
-   (parser:exactly length (parser:char-in-set char-set:hex-digit))))
-
-;++ This should be changed so that it is part of the Turtle parse
-;++ context.
-
-(define *turtle-bnode-number* 0)
-
-(define (reset-turtle-bnode-number)
-  (set! *turtle-bnode-number* 0))
-
-(define (allocate-turtle-bnode-number)
-  (let ((number *turtle-bnode-number*))
-    (set! *turtle-bnode-number* (+ number 1))
-    number))
-
-(define (make-anonymous-rdf-bnode)
-  (make-rdf-bnode (allocate-turtle-bnode-number)))
+  (parser:string:exactly length (parser:char-in-set char-set:hex-digit)))
 
 ;;;; Turtle Character Sets
 
@@ -454,25 +402,71 @@
                   (ucs-range->char-set #x0300 #x0370)
                   (ucs-range->char-set #x203F #x2041)))
 
-;;;; Namespace Maps
+(define-record-type <turtle-context>
+    (%make-turtle-context prefix-map triples bnode-number)
+    turtle-context?
+  (prefix-map turtle-context/prefix-map)
+  (triples turtle-context/triples)
+  (bnode-number turtle-context/bnode-number))
 
-(define (make-namespace-map)
-  '())
+(define (make-turtle-parser-context)
+  (%make-turtle-context '() '() 0))
 
-(define (add-namespace namespace-map abbreviation expansion)
-  (cons (cons abbreviation expansion) namespace-map))
+(define (turtle-context/increment-bnode-number context)
+  (%make-turtle-context (turtle-context/prefix-map context)
+                        (turtle-context/triples context)
+                        (+ 1 (turtle-context/bnode-number context))))
 
-(define (expand-namespace namespace-map abbreviation)
-  (any (if abbreviation
-           (lambda (namespace)
-             (let ((abbreviation* (car namespace)))
-               (and (string? abbreviation*)
-                    (string=? abbreviation abbreviation*)
-                    (cdr namespace))))
-           (lambda (namespace)
-             (and (not (car namespace))
-                  (cdr namespace))))
-       namespace-map))
+(define (turtle-context/add-triples context triples)
+  (%make-turtle-context (turtle-context/prefix-map context)
+                        (append-reverse triples
+                                        (turtle-context/triples context))
+                        (turtle-context/bnode-number context)))
+
+(define (turtle-context/add-prefix-expansion context name expansion)
+  (%make-turtle-context (cons (cons name expansion)
+                              (turtle-context/prefix-map context))
+                        (turtle-context/triples context)
+                        (turtle-context/bnode-number context)))
+
+(define (turtle-context/expand-prefix context name)
+  (any (if name
+           (lambda (entry)
+             (and (string? (car entry))
+                  (string=? (car entry) name)
+                  (cdr entry)))
+           (lambda (entry)
+             (and (not (car entry))
+                  (cdr entry))))
+       (turtle-context/prefix-map context)))
+
+(define-parser turtle:new-anonymous-bnode
+  (parser:extend (parser:context)
+    (lambda (context)
+      (let ((number (turtle-context/bnode-number context)))
+        (parser:sequence
+         (parser:set-context (turtle-context/increment-bnode-number context))
+         (parser:return
+          (make-rdf-bnode
+           (string-append "gen" (number->string number #d10)))))))))
+
+(define-parser (turtle:add-triples triples)
+  (parser:modify-context
+   (lambda (context)
+     (turtle-context/add-triples context triples))))
+
+(define-parser (turtle:add-triple triple)
+  (turtle:add-triples (list triple)))
+
+(define-parser (turtle:add-prefix-expansion name expansion)
+  (parser:modify-context
+   (lambda (context)
+     (turtle-context/add-prefix-expansion context name expansion))))
+
+(define-parser (turtle:expand-prefix name)
+  (parser:with-context
+   (lambda (context)
+     (turtle-context/expand-prefix context name))))
 
 ;;;; URI Utilities
 
