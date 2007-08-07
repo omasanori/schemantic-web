@@ -42,9 +42,14 @@
 (define-test-case rdf-nt-parser-tests 0 ()
   ;; This should actually check that we got the right triples, but
   ;; that's too much work right now.
-  (parse-file (nt-parser:document)
+  (parse-file nt-parser:document
               "test.nt"
-              (lambda (pstate perror)
+              #f                        ;No context
+              (lambda (triples context stream)
+                triples context stream
+                'SUCCESS)
+              (lambda (perror context stream)
+                context stream          ;ignore
                 (apply error
                        "Parse error:"
                        (parse-error/position perror)
