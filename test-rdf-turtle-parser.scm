@@ -9,18 +9,27 @@
 (define-test-suite rdf-turtle-parser-tests
   "RDF Turtle Parser")
 
+(define (test-turtle-file pathname loser)
+  (parse-file turtle-parser:document
+              pathname
+              (make-turtle-parser-context)
+              (lambda (triples context stream)
+                context stream          ;ignore
+                triples)
+              (lambda (perror context stream)
+                context stream          ;ignore
+                (loser perror))))
+
 (define-syntax define-good-test
   (syntax-rules ()
     ((DEFINE-GOOD-TEST name)
      (DEFINE-TEST-CASE RDF-TURTLE-PARSER-TESTS name ()
-       (PARSE-FILE (TURTLE-PARSER:DOCUMENT)
-                   (STRING-APPEND "tests/" name ".ttl")
-                   (LAMBDA (PERROR STREAM)
-                     STREAM             ;ignore
-                     (APPLY ERROR
-                            "Parse error:"
-                            (PARSE-ERROR/POSITION PERROR)
-                            (PARSE-ERROR/MESSAGES PERROR))))))))
+       (TEST-TURTLE-FILE (STRING-APPEND "tests/" name ".ttl")
+                         (LAMBDA (PERROR)
+                           (APPLY ERROR
+                                  "Parse error:"
+                                  (PARSE-ERROR/POSITION PERROR)
+                                  (PARSE-ERROR/MESSAGES PERROR))))))))
 
 (define-good-test "test-00")
 (define-good-test "test-01")
@@ -56,11 +65,8 @@
     ((DEFINE-BAD-TEST name)
      (DEFINE-TEST-CASE RDF-TURTLE-PARSER-TESTS name ()
        (TEST-PREDICATE PARSE-ERROR?
-         (PARSE-FILE (TURTLE-PARSER:DOCUMENT)
-                     (STRING-APPEND "tests/" name ".ttl")
-                     (LAMBDA (PERROR STREAM)
-                       STREAM           ;ignore
-                       PERROR)))))))
+         (TEST-TURTLE-FILE (STRING-APPEND "tests/" name ".ttl")
+                           (LAMBDA (PERROR) PERROR)))))))
 
 (define-bad-test "bad-00")
 (define-bad-test "bad-01")
