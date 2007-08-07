@@ -468,26 +468,26 @@
    (lambda (context)
      (turtle-context/expand-prefix context name))))
 
-;;;; URI Utilities
+;;;; Standard URI References
 
-(define rdf-namespace
-  (string->uri "http://www.w3.org/1999/02/22-rdf-syntax-ns"))
+(define rdf-prefix
+  "http://www.w3.org/1999/02/22-rdf-syntax-ns#")
 
-(define (rdf-uri content)
-  (merge-uris (string->uri content) rdf-namespace))
+(define (rdf: suffix)
+  (string->rdf-uri-ref (string-append rdf-prefix suffix)))
 
-(define rdf:type (rdf-uri "#type"))
-(define rdf:first (rdf-uri "#first"))
-(define rdf:rest (rdf-uri "#rest"))
-(define rdf:nil (rdf-uri "#nil"))
+(define rdf:type (rdf: "type"))
+(define rdf:first (rdf: "first"))
+(define rdf:rest (rdf: "rest"))
+(define rdf:nil (rdf: "nil"))
 
-(define xsd-namespace
-  (string->uri "http://www.w3.org/2001/XMLSchema"))
+(define xsd-prefix
+  "http://www.w3.org/2001/XMLSchema")
 
-(define (xsd-uri content)
-  (merge-uris (string->uri content) xsd-namespace))
+(define (xsd: suffix)
+  (string->rdf-uri-ref (string-append xsd-prefix suffix)))
 
-(define xsd:boolean (xsd-uri "#boolean"))
-(define xsd:decimal (xsd-uri "#decimal"))
-(define xsd:double (xsd-uri "#double"))
-(define xsd:integer (xsd-uri "#integer"))
+(define xsd:boolean (xsd: "boolean"))
+(define xsd:decimal (xsd: "decimal"))
+(define xsd:double (xsd: "double"))
+(define xsd:integer (xsd: "integer"))
