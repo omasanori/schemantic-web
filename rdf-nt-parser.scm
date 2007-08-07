@@ -9,90 +9,86 @@
 ;;; This parser was derived from the grammar at
 ;;; <http://www.w3.org/TR/rdf-testcases/#ntriples>.
 
-(define (nt-parser:document)
-  (let loop ((triples '()))
-    (parser:choice (*parser (((parser:end)))
-                     (parser:return (reverse triples)))
-                   (*parser ((item (nt-parser:line)))
-                     (loop (if item (cons item triples) triples))))))
+(define-parser nt-parser:document
+  (parser:map (parser:repeated-until (parser:end)
+                  (lambda (item triples)
+                    (if item (cons item triples) triples))
+                  (parser:return '())
+                nt-parser:line)
+    reverse))
 
-(define (nt-parser:line)
-  (*parser (((nt-parser:ws*))
-            (item
-             (parser:choice (nt-parser:comment)
-                            (nt-parser:triple)
-                            (parser:return #f)))
-            ((nt-parser:eoln)))
+(define-parser nt-parser:line
+  (*parser
+      (nt-parser:ws*)
+      (item
+       (parser:choice nt-parser:comment nt-parser:triple (parser:return #f)))
+      (nt-parser:eoln)
     (parser:return item)))
 
-(define (nt-parser:comment)
+(define-parser nt-parser:comment
   (parser:sequence
    (parser:char= #\#)
-   (parser:repeated (parser:char-not-in-set nt-char-set:line-break))
+   (parser:noise:repeated (parser:char-not-in-set nt-char-set:line-break))
    (parser:return #f)))
 
-(define (nt-parser:triple)
-  (*parser ((subject (nt-parser:subject))
-            ((nt-parser:ws+))
-            (predicate (nt-parser:predicate))
-            ((nt-parser:ws+))
-            (object (nt-parser:object))
-            ((nt-parser:ws*))
-            ((parser:char= #\.))
-            ((nt-parser:ws*)))
+(define-parser nt-parser:triple
+  (*parser
+      (subject nt-parser:subject)
+      (nt-parser:ws+)
+      (predicate nt-parser:predicate)
+      (nt-parser:ws+)
+      (object nt-parser:object)
+      (nt-parser:ws*)
+      ((parser:char= #\.))
+      (nt-parser:ws*)
     (parser:return (make-rdf-triple subject predicate object))))
 
-(define (nt-parser:subject)
-  (parser:choice (nt-parser:resource)
-                 (nt-parser:blank)))
+(define-parser nt-parser:subject
+  (parser:choice nt-parser:resource nt-parser:blank))
 
-(define (nt-parser:predicate)
-  (nt-parser:resource))
+(define-parser nt-parser:predicate
+  nt-parser:resource)
 
-(define (nt-parser:object)
-  (parser:choice (nt-parser:resource)
-                 (nt-parser:blank)
-                 (nt-parser:literal)))
+(define-parser nt-parser:object
+  (parser:choice nt-parser:resource nt-parser:blank nt-parser:literal))
 
-(define (nt-parser:resource)
-  (*parser ((uri-ref (nt-parser:uri-ref)))
-    (if (match-string? (uri-matcher:uri-reference) uri-ref)
+(define-parser nt-parser:resource
+  (*parser (uri-ref nt-parser:uri-ref)
+    (if (match-string? uri-matcher:uri-reference uri-ref)
         (parser:return (string->rdf-uri-ref uri-ref))
         (parser:error
-         (string-append "Malformed URI text `" uri-ref "'")))))
+         (string-append "Malformed RDF URI reference `" uri-ref "'")))))
 
-(define (nt-parser:blank)
-  (*parser ((node-id (nt-parser:node-id)))
+(define-parser nt-parser:blank
+  (*parser (node-id nt-parser:node-id)
     (parser:return (make-rdf-bnode node-id))))
 
-(define (nt-parser:uri-ref)
-  (parser:list->string
-   (parser:bracketed* (parser:char= #\<)
-                      (parser:char= #\>)
-     (parser:char-in-set nt-char-set:uri-ref))))
+(define-parser nt-parser:uri-ref
+  (parser:bracketed-string (parser:char= #\<) (parser:char= #\>)
+    (parser:char-in-set nt-char-set:uri-ref)))
 
-(define (nt-parser:node-id)
-  (*parser (((parser:string= "_:")))
+(define-parser nt-parser:node-id
+  (*parser ((parser:string= "_:"))
     (parser:match->string
      (matcher:sequence
       (matcher:char-in-set nt-char-set:name-initial)
       (matcher:repeated (matcher:char-in-set nt-char-set:name-trailing))))))
 
-(define (nt-parser:literal)
-  (*parser ((lexical-form (nt-parser:string)))
+(define-parser nt-parser:literal
+  (*parser (lexical-form nt-parser:string)
     (parser:choice
-     (*parser ((datatype-uri (nt-parser:literal-datatype-uri)))
+     (*parser (datatype-uri nt-parser:literal-datatype-uri)
        (parser:return (make-rdf-typed-literal lexical-form datatype-uri)))
-     (*parser ((language-tag
-                (parser:choice (nt-parser:literal-language-tag)
-                               (parser:return #f))))
+     (*parser (language-tag
+               (parser:choice nt-parser:literal-language-tag
+                              (parser:return #f)))
        (parser:return (make-rdf-plain-literal lexical-form language-tag))))))
 
-(define (nt-parser:literal-datatype-uri)
+(define-parser nt-parser:literal-datatype-uri
   (parser:sequence (parser:string= "^^")
-                   (nt-parser:resource)))
+                   nt-parser:resource))
 
-(define (nt-parser:literal-language-tag)
+(define-parser nt-parser:literal-language-tag
   (parser:sequence
    (parser:char= #\@)
    (parser:match->string
@@ -105,20 +101,18 @@
        (matcher:at-least 1
          (matcher:char-in-set nt-char-set:language-trailing))))))))
 
-(define (nt-parser:string)
-  (parser:list->string
-   (parser:bracketed* (parser:char= #\")
-                      (parser:char= #\")
-     (nt-parser:string-char))))
+(define-parser nt-parser:string
+  (parser:bracketed-string (parser:char= #\") (parser:char= #\")
+    nt-parser:string-char))
 
-(define (nt-parser:string-char)
-  (*parser ((char (parser:char)))
+(define-parser nt-parser:string-char
+  (*parser (char (parser:char))
     (if (char=? char #\\)
-        (nt-parser:string-escape)
+        nt-parser:string-escape
         (parser:return char))))
 
-(define (nt-parser:string-escape)
-  (*parser ((escape-char (parser:char)))
+(define-parser nt-parser:string-escape
+  (*parser (escape-char (parser:char))
     (case escape-char
       ((#\t) (parser:return (ascii->char #x09)))
       ((#\n) (parser:return (ascii->char #x0A)))
@@ -127,32 +121,31 @@
       ((#\U) (nt-parser:unicode-escape 8))
       (else (parser:return escape-char)))))
 
-(define (nt-parser:unicode-escape length)
-  (*parser ((hex-string (parser:hex-string length)))
+(define-parser (nt-parser:unicode-escape length)
+  (*parser (hex-string (parser:hex-string length))
     (parser:return
      (let ((number (string->number hex-string #x10)))
        (if (< number ascii-limit)
            (ascii->char number)
            #\?)))))                     ;++ fix
 
-(define (parser:hex-string length)
-  (parser:list->string
-   (parser:exactly length (parser:char-in-set char-set:hex-digit))))
+(define-parser (parser:hex-string length)
+  (parser:string:exactly length (parser:char-in-set char-set:hex-digit)))
 
-(define (nt-parser:eoln)
+(define-parser nt-parser:eoln
   (let ((CR (parser:char= (ascii->char #x0D)))
         (LF (parser:char= (ascii->char #x0A))))
     (parser:choice (parser:sequence CR (parser:choice LF (parser:return '())))
                    LF)))
 
-(define (nt-parser:ws)
+(define-parser nt-parser:ws
   (parser:char-in-set nt-char-set:ws))
 
-(define (nt-parser:ws*)
-  (parser:repeated (nt-parser:ws)))
+(define-parser nt-parser:ws*
+  (parser:noise:repeated nt-parser:ws))
 
-(define (nt-parser:ws+)
-  (parser:at-least 1 (nt-parser:ws)))
+(define-parser nt-parser:ws+
+  (parser:noise:at-least 1 nt-parser:ws))
 
 ;;;; N-Triples Character Sets
 
