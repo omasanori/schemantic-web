@@ -126,15 +126,15 @@
 
 (define (uri-scheme? object)
   (and (symbol? object)
-       (match-string? (uri-matcher:scheme) (symbol->string object))))
+       (match-string? uri-matcher:scheme (symbol->string object))))
 
 (define (uri-userinfo? object)
   (and (string? object)
-       (match-string? (uri-matcher:userinfo) object)))
+       (match-string? uri-matcher:userinfo object)))
 
 (define (uri-host? object)
   (and (string? object)
-       (match-string? (uri-matcher:host) object)))
+       (match-string? uri-matcher:host object)))
 
 (define (uri-port? object)
   (and (integer? object)
@@ -163,11 +163,11 @@
 
 (define (uri-query? object)
   (and (string? object)
-       (match-string? (uri-matcher:query) object)))
+       (match-string? uri-matcher:query object)))
 
 (define (uri-fragment? object)
   (and (string? object)
-       (match-string? (uri-matcher:fragment) object)))
+       (match-string? uri-matcher:fragment object)))
 
 (define (absolute-uri? object)
   (and (uri? object)
@@ -203,12 +203,12 @@
 
 (define (guarantee-uri-scheme object . context)
   (define (lose) (apply error "Invalid URI scheme:" object context))
-  (cond ((symbol? object)
-         (if (match-string? (uri-matcher:scheme) (symbol->string object))
+  (cond ((symbol? object)               ;++ Downcase here?
+         (if (match-string? uri-matcher:scheme (symbol->string object))
              object
              (lose)))
         ((string? object)
-         (if (match-string? (uri-matcher:scheme) object)
+         (if (match-string? uri-matcher:scheme object)
              (string->symbol (string-downcase object))
              (lose)))
         (else (lose))))
@@ -364,29 +364,35 @@
   (guarantee-relative-uri object 'OBJECT->RELATIVE-URI))
 
 (define (maybe-string->uri string)
-  (%maybe-string->uri (uri-parser:uri-reference) string))
+  (%maybe-string->uri uri-parser:uri-reference string))
 
 (define (maybe-string->absolute-uri string)
-  (%maybe-string->uri (uri-parser:uri) string))
+  (%maybe-string->uri uri-parser:uri string))
 
 (define (maybe-string->relative-uri string)
-  (%maybe-string->uri (uri-parser:relative-ref) string))
+  (%maybe-string->uri uri-parser:relative-ref string))
 
 (define (string->uri string)
-  (%string->uri (uri-parser:uri-reference) string 'STRING->URI))
+  (%string->uri uri-parser:uri-reference string 'STRING->URI))
 
 (define (string->absolute-uri string)
-  (%string->uri (uri-parser:uri) string 'STRING->ABSOLUTE-URI))
+  (%string->uri uri-parser:uri string 'STRING->ABSOLUTE-URI))
 
 (define (string->relative-uri string)
-  (%string->uri (uri-parser:relative-ref) string 'STRING->RELATIVE-URI))
-
+  (%string->uri uri-parser:relative-ref string 'STRING->RELATIVE-URI))
+
 (define (%maybe-string->uri parser string)
   (and (string? string)
        (or (soft-intern uri-camp string)
            (parse-string (parser:complete parser)
                          string
-                         (lambda (perror stream) perror stream #f)))))
+                         #f             ;No context
+                         (lambda (uri context stream)
+                           context stream ;ignore
+                           uri)
+                         (lambda (perror context stream)
+                           context stream ;ignore
+                           #f)))))
 
 (define (%string->uri parser string caller)
   (if (not (string? string))
@@ -394,8 +400,12 @@
       (or (soft-intern uri-camp string)
           (parse-string (parser:complete parser)
                         string
-                        (lambda (perror stream)
-                          stream        ;ignore
+                        #f              ;No context
+                        (lambda (uri context stream)
+                          context stream ;ignore
+                          uri)
+                        (lambda (perror context stream)
+                          context stream ;ignore
                           (apply error "Malformed URI:" string caller
                                  `(at position ,(parse-error/position perror))
                                  ;; This is a little silly.
@@ -480,16 +490,17 @@
 ;;; I believe that that is all that I changed, but I could be wrong; I
 ;;; may have made some changes before I thought to document them.
 
-(define-parser (uri-parser:uri-reference)
-  (parser:deep-choice (uri-parser:uri)
-                      (uri-parser:relative-ref)))
+(define-parser uri-parser:uri-reference
+  (parser:deep-choice uri-parser:uri
+                      uri-parser:relative-ref))
 
-(define-parser (uri-parser:uri)
-  (*parser ((scheme (uri-parser:scheme))
-            ((parser:char= #\:))
-            (authority.path (uri-parser:hier-part))
-            (query (uri-parser:query))
-            (fragment (uri-parser:fragment)))
+(define-parser uri-parser:uri
+  (*parser
+      (scheme uri-parser:scheme)
+      ((parser:char= #\:))
+      (authority.path uri-parser:hier-part)
+      (query uri-parser:query)
+      (fragment uri-parser:fragment)
     (parser:return
      (make-uri scheme
                (car authority.path)
@@ -497,10 +508,11 @@
                query
                fragment))))
 
-(define-parser (uri-parser:relative-ref)
-  (*parser ((authority.path (uri-parser:relative-part))
-            (query (uri-parser:query))
-            (fragment (uri-parser:fragment)))
+(define-parser uri-parser:relative-ref
+  (*parser
+      (authority.path uri-parser:relative-part)
+      (query uri-parser:query)
+      (fragment uri-parser:fragment)
     (parser:return
      (make-uri #f
                (car authority.path)
@@ -508,11 +520,12 @@
                query
                fragment))))
 
-(define-parser (uri-parser:absolute-uri)
-  (*parser ((scheme (uri-parser:scheme))
-            ((parser:char= #\:))
-            (authority.path (uri-parser:hier-part))
-            (query (uri-parser:query)))
+(define-parser uri-parser:absolute-uri
+  (*parser
+      (scheme uri-parser:scheme)
+      ((parser:char= #\:))
+      (authority.path uri-parser:hier-part)
+      (query uri-parser:query)
     (parser:return
      (make-uri scheme
                (car authority.path)
@@ -520,40 +533,41 @@
                query
                #f))))
 
-(define-parser (uri-parser:scheme)
-  (*parser ((string (parser:match->string (uri-matcher:scheme))))
+(define-parser uri-parser:scheme
+  (*parser (string (parser:match->string uri-matcher:scheme))
     (begin (string-downcase! string)    ;++ ARGH!
            (parser:return (string->symbol string)))))
 
 ;;; The following two differ by PATH-ROOTLESS versus PATH-NOSCHEME.
 
-(define-parser (uri-parser:hier-part)
-  (parser:choice (uri-parser:authority+path)
-                 (*parser ((path
-                            (parser:choice (uri-parser:path-absolute)
-                                           (uri-parser:path-rootless)
-                                           (uri-parser:path-empty))))
+(define-parser uri-parser:hier-part
+  (parser:choice uri-parser:authority+path
+                 (*parser (path
+                           (parser:choice uri-parser:path-absolute
+                                          uri-parser:path-rootless
+                                          uri-parser:path-empty))
                    (parser:return (cons #f path)))))
 
-(define-parser (uri-parser:relative-part)
-  (parser:choice (uri-parser:authority+path)
-                 (*parser ((path
-                            (parser:choice (uri-parser:path-absolute)
-                                           (uri-parser:path-noscheme)
-                                           (uri-parser:path-empty))))
+(define-parser uri-parser:relative-part
+  (parser:choice uri-parser:authority+path
+                 (*parser (path
+                           (parser:choice uri-parser:path-absolute
+                                          uri-parser:path-noscheme
+                                          uri-parser:path-empty))
                    (parser:return (cons #f path)))))
 
-(define-parser (uri-parser:authority+path)
+(define-parser uri-parser:authority+path
   (parser:backtrackable                 ; We may need to back out of a slash,
-   (*parser (((parser:string= "//"))    ; for absolute paths without authority.
-             (authority (uri-parser:authority))
-             (path (uri-parser:path-abempty)))
+   (*parser                             ; for absolute paths without authority.
+       ((parser:string= "//"))
+       (authority uri-parser:authority)
+       (path uri-parser:path-abempty)
      (parser:return (cons authority path)))))
 
-(define-parser (uri-parser:query)
+(define-parser uri-parser:query
   (uri-parser:optional-appendage #\? uri-char-set:query))
 
-(define-parser (uri-parser:fragment)
+(define-parser uri-parser:fragment
   (uri-parser:optional-appendage #\# uri-char-set:fragment))
 
 (define-parser (uri-parser:optional-appendage delimiter char-set)
@@ -562,227 +576,225 @@
                      (uri-parser:pct-encoded-string char-set))))
 
 (define-parser (uri-parser:pct-encoded-string-nz char-set)
-  (parser:list->string
-   (parser:at-least 1
-     (parser:choice (parser:char-in-set char-set)
-                    (uri-parser:pct-encoded)))))
+  (parser:string:at-least 1
+    (parser:choice (parser:char-in-set char-set)
+                   uri-parser:pct-encoded)))
 
 (define-parser (uri-parser:pct-encoded-string char-set)
-  (parser:list->string
-   (parser:repeated
-    (parser:choice (parser:char-in-set char-set)
-                   (uri-parser:pct-encoded)))))
+  (parser:string:repeated
+   (parser:choice (parser:char-in-set char-set)
+                  uri-parser:pct-encoded)))
 
-(define-parser (uri-parser:pct-encoded)
-  (*parser (((parser:char= #\%))
-            (a (parser:hex-digit))
-            (b (parser:hex-digit)))
+(define-parser uri-parser:pct-encoded
+  (*parser
+      ((parser:char= #\%))
+      (a uri-parser:hex-digit)
+      (b uri-parser:hex-digit)
     (parser:return (ascii->char (+ (* a #x10) b)))))
 
-(define-parser (uri-parser:authority)
-  (*parser ((userinfo
-             (parser:choice (parser:backtrackable
-                             (*parser ((userinfo (uri-parser:userinfo))
-                                       ((parser:char= #\@)))
-                               (parser:return userinfo)))
-                            (parser:return #f)))
-            (host (uri-parser:host))
-            (port
-             (parser:optional #f
-               (parser:sequence (parser:char= #\:)
-                                (uri-parser:port)))))
+(define-parser uri-parser:authority
+  (*parser
+      (userinfo
+       (parser:choice (parser:backtrackable
+                       (*parser (userinfo uri-parser:userinfo)
+                                ((parser:char= #\@))
+                         (parser:return userinfo)))
+                      (parser:return #f)))
+      (host uri-parser:host)
+      (port
+       (parser:optional #f
+         (parser:sequence (parser:char= #\:) uri-parser:port)))
     (parser:return
      (make-uri-authority userinfo host port))))
 
-(define-parser (uri-parser:userinfo)
+(define-parser uri-parser:userinfo
   (uri-parser:pct-encoded-string uri-char-set:userinfo))
 
-(define-parser (uri-parser:host)
-  (*parser ((string (parser:match->string (uri-matcher:host))))
+(define-parser uri-parser:host
+  (*parser (string (parser:match->string uri-matcher:host))
     (begin (string-downcase! string) (parser:return string))))
 
-(define-parser (uri-parser:port)
-  (*parser ((string (parser:match->string (uri-matcher:port))))
+(define-parser uri-parser:port
+  (*parser (string (parser:match->string uri-matcher:port))
     (parser:return (and (positive? (string-length string))
                         (string->number string #d10)))))
 
-(define-parser (uri-parser:path-abempty)
-  (*parser ((segments (uri-parser:segments)))
+(define-parser uri-parser:path-abempty
+  (*parser (segments uri-parser:segments)
     (parser:return (cons "" segments))))
 
-(define-parser (uri-parser:path-absolute)
+(define-parser uri-parser:path-absolute
   (parser:sequence
    (parser:char= #\/)
    (parser:optional '()
-     (*parser ((initial-segment (uri-parser:segment-nz))
-               (trailing-segments (uri-parser:segments)))
+     (*parser
+         (initial-segment uri-parser:segment-nz)
+         (trailing-segments uri-parser:segments)
        (parser:return (cons "" (cons initial-segment trailing-segments)))))))
 
-(define-parser (uri-parser:path-rootless)
-  (*parser ((initial-segment (uri-parser:segment-nz))
-            (trailing-segments (uri-parser:segments)))
+(define-parser uri-parser:path-rootless
+  (*parser (initial-segment uri-parser:segment-nz)
+           (trailing-segments uri-parser:segments)
     (parser:return (cons initial-segment trailing-segments))))
 
-(define-parser (uri-parser:path-noscheme)
-  (*parser ((initial-segment (uri-parser:segment-nz-nc))
-            (trailing-segments (uri-parser:segments)))
+(define-parser uri-parser:path-noscheme
+  (*parser (initial-segment uri-parser:segment-nz-nc)
+           (trailing-segments uri-parser:segments)
     (parser:return (cons initial-segment trailing-segments))))
 
-(define-parser (uri-parser:path-empty)
-  (parser:return '()))
+(define-parser uri-parser:path-empty (parser:return '()))
 
-(define-parser (uri-parser:segments)
-  (parser:repeated
-   (parser:sequence (parser:char= #\/)
-                    (uri-parser:segment))))
+(define-parser uri-parser:segments
+  (parser:list:repeated
+   (parser:sequence (parser:char= #\/) uri-parser:segment)))
 
-(define-parser (uri-parser:segment)
+(define-parser uri-parser:segment
   (uri-parser:pct-encoded-string uri-char-set:pchar))
 
-(define-parser (uri-parser:segment-nz)
+(define-parser uri-parser:segment-nz
   (uri-parser:pct-encoded-string-nz uri-char-set:pchar))
 
-(define-parser (uri-parser:segment-nz-nc)
+(define-parser uri-parser:segment-nz-nc
   (uri-parser:pct-encoded-string-nz uri-char-set:pchar-nc))
 
 ;;;; URI Matchers
 
-(define (uri-matcher:uri-reference)
-  (matcher:deep-choice (uri-matcher:uri)
-                       (uri-matcher:relative-ref)))
+(define-matcher uri-matcher:uri-reference
+  (matcher:deep-choice uri-matcher:uri
+                       uri-matcher:relative-ref))
 
-(define (uri-matcher:uri)
-  (matcher:sequence (uri-matcher:scheme)
+(define-matcher uri-matcher:uri
+  (matcher:sequence uri-matcher:scheme
                     (matcher:char= #\:)
-                    (uri-matcher:hier-part)
-                    (uri-matcher:query)
-                    (uri-matcher:fragment)))
+                    uri-matcher:hier-part
+                    uri-matcher:query
+                    uri-matcher:fragment))
 
-(define (uri-matcher:relative-ref)
-  (matcher:sequence (uri-matcher:relative-part)
-                    (uri-matcher:query)
-                    (uri-matcher:fragment)))
+(define-matcher uri-matcher:relative-ref
+  (matcher:sequence uri-matcher:relative-part
+                    uri-matcher:query
+                    uri-matcher:fragment))
 
-(define (uri-matcher:absolute-uri)
-  (matcher:sequence (uri-matcher:scheme)
+(define-matcher uri-matcher:absolute-uri
+  (matcher:sequence uri-matcher:scheme
                     (matcher:char= #\:)
-                    (uri-matcher:hier-part)
-                    (uri-matcher:query)))
+                    uri-matcher:hier-part
+                    uri-matcher:query))
 
-(define (uri-matcher:scheme)
+(define-matcher uri-matcher:scheme
   (matcher:sequence
    (matcher:char-in-set char-set:letter)
    (matcher:repeated
     (matcher:char-in-set
      (char-set-adjoin char-set:letter+digit #\+ #\- #\.)))))
 
-(define (uri-matcher:hier-part)
-  (matcher:choice (uri-matcher:authority+path)
-                  (uri-matcher:path-absolute)
-                  (uri-matcher:path-rootless)
-                  (uri-matcher:path-empty)))
+(define-matcher uri-matcher:hier-part
+  (matcher:choice uri-matcher:authority+path
+                  uri-matcher:path-absolute
+                  uri-matcher:path-rootless
+                  uri-matcher:path-empty))
 
-(define (uri-matcher:relative-part)
-  (matcher:choice (uri-matcher:authority+path)
-                  (uri-matcher:path-absolute)
-                  (uri-matcher:path-noscheme)
-                  (uri-matcher:path-empty)))
+(define-matcher uri-matcher:relative-part
+  (matcher:choice uri-matcher:authority+path
+                  uri-matcher:path-absolute
+                  uri-matcher:path-noscheme
+                  uri-matcher:path-empty))
 
-(define (uri-matcher:authority+path)
+(define-matcher uri-matcher:authority+path
   (matcher:sequence (matcher:char= #\/)
                     (matcher:char= #\/)
-                    (uri-matcher:authority)
-                    (uri-matcher:path-abempty)))
+                    uri-matcher:authority
+                    uri-matcher:path-abempty))
 
-(define (uri-matcher:query)
+(define-matcher uri-matcher:query
   (uri-matcher:optional-appendage #\? uri-char-set:query))
 
-(define (uri-matcher:fragment)
+(define-matcher uri-matcher:fragment
   (uri-matcher:optional-appendage #\# uri-char-set:fragment))
 
-(define (uri-matcher:optional-appendage delimiter char-set)
+(define-matcher (uri-matcher:optional-appendage delimiter char-set)
   (matcher:optional
    (matcher:sequence (matcher:char= delimiter)
                      (uri-matcher:pct-encoded-string char-set))))
 
 ;;;;; Authority and Path
 
-(define (uri-matcher:authority)
+(define-matcher uri-matcher:authority
   (matcher:sequence (matcher:optional
-                     (matcher:sequence (uri-matcher:userinfo)
+                     (matcher:sequence uri-matcher:userinfo
                                        (matcher:char= #\@)))
-                    (uri-matcher:host)
+                    uri-matcher:host
                     (matcher:optional
                      (matcher:sequence (matcher:char= #\:)
-                                       (uri-matcher:port)))))
+                                       uri-matcher:port))))
 
-(define (uri-matcher:userinfo)
+(define-matcher uri-matcher:userinfo
   (uri-matcher:pct-encoded-string uri-char-set:userinfo))
 
-(define (uri-matcher:host)
-  (matcher:deep-choice (uri-matcher:ip-literal)
-                       (uri-matcher:ipv4-address)
-                       (uri-matcher:reg-name)))
+(define-matcher uri-matcher:host
+  (matcher:deep-choice uri-matcher:ip-literal
+                       uri-matcher:ipv4-address
+                       uri-matcher:reg-name))
 
-(define (uri-matcher:port)
+(define-matcher uri-matcher:port
   (matcher:repeated (matcher:char-in-set char-set:digit)))
 
-(define (uri-matcher:path-abempty)
-  (uri-matcher:segments))
+(define-matcher uri-matcher:path-abempty
+  uri-matcher:segments)
 
-(define (uri-matcher:path-absolute)
+(define-matcher uri-matcher:path-absolute
   (matcher:sequence (matcher:char= #\/)
                     (matcher:optional
-                     (matcher:sequence (uri-matcher:segment-nz)
-                                       (uri-matcher:segments)))))
+                     (matcher:sequence uri-matcher:segment-nz
+                                       uri-matcher:segments))))
 
-(define (uri-matcher:path-noscheme)
-  (matcher:sequence (uri-matcher:segment-nz-nc) (uri-matcher:segments)))
+(define-matcher uri-matcher:path-noscheme
+  (matcher:sequence uri-matcher:segment-nz-nc uri-matcher:segments))
 
-(define (uri-matcher:path-rootless)
-  (matcher:sequence (uri-matcher:segment-nz) (uri-matcher:segments)))
+(define-matcher uri-matcher:path-rootless
+  (matcher:sequence uri-matcher:segment-nz uri-matcher:segments))
 
-(define (uri-matcher:path-empty)
+(define-matcher uri-matcher:path-empty
   (matcher:epsilon))
 
-(define (uri-matcher:segments)
+(define-matcher uri-matcher:segments
   (matcher:repeated
-   (matcher:sequence (matcher:char= #\/) (uri-matcher:segment))))
+   (matcher:sequence (matcher:char= #\/) uri-matcher:segment)))
 
-(define (uri-matcher:segment)
+(define-matcher uri-matcher:segment
   (uri-matcher:pct-encoded-string uri-char-set:pchar))
 
-(define (uri-matcher:segment-nz)
+(define-matcher uri-matcher:segment-nz
   (uri-matcher:pct-encoded-string-nz uri-char-set:pchar))
 
-(define (uri-matcher:segment-nz-nc)
+(define-matcher uri-matcher:segment-nz-nc
   (uri-matcher:pct-encoded-string-nz uri-char-set:pchar-nc))
 
 ;;;;; Hosts and Percent-Encoded Strings
 
-(define (uri-matcher:ip-literal)
+(define-matcher uri-matcher:ip-literal
   (matcher:sequence (matcher:char= #\[)
-                    (matcher:choice (uri-matcher:ipvfuture)
-                                    (uri-matcher:ipv6-address))
+                    (matcher:choice uri-matcher:ipvfuture
+                                    uri-matcher:ipv6-address)
                     (matcher:char= #\])))
 
-(define (uri-matcher:ipvfuture)
+(define-matcher uri-matcher:ipvfuture
   (matcher:sequence
    (matcher:char-ci= #\v)
    (matcher:at-least 1 (matcher:char-in-set char-set:hex-digit))
    (matcher:char= #\.)
    (matcher:at-least 1 (matcher:char-in-set uri-char-set:ipvfuture))))
 
-(define (uri-matcher:ipv4-address)
-  (matcher:sequence (uri-matcher:dec-octet)
+(define-matcher uri-matcher:ipv4-address
+  (matcher:sequence uri-matcher:dec-octet
                     (matcher:char= #\.)
-                    (uri-matcher:dec-octet)
+                    uri-matcher:dec-octet
                     (matcher:char= #\.)
-                    (uri-matcher:dec-octet)
+                    uri-matcher:dec-octet
                     (matcher:char= #\.)
-                    (uri-matcher:dec-octet)))
+                    uri-matcher:dec-octet))
 
-(define (uri-matcher:dec-octet)         ;++ What a mess!
+(define-matcher uri-matcher:dec-octet   ;++ What a mess!
   (matcher:deep-choice
    (matcher:char-in-set char-set:digit)
    (matcher:sequence (matcher:char-in-set (string->char-set "123456789"))
@@ -797,20 +809,20 @@
                      (matcher:char= #\5)
                      (matcher:char-in-set (string->char-set "012345")))))
 
-(define (uri-matcher:reg-name)
+(define-matcher uri-matcher:reg-name
   (matcher:repeated (matcher:char-in-set uri-char-set:reg-name)))
 
-(define (uri-matcher:pct-encoded-string char-set)
+(define-matcher (uri-matcher:pct-encoded-string char-set)
   (matcher:repeated
-   (matcher:choice (uri-matcher:pct-encoded)
+   (matcher:choice uri-matcher:pct-encoded
                    (matcher:char-in-set char-set))))
 
-(define (uri-matcher:pct-encoded-string-nz char-set)
+(define-matcher (uri-matcher:pct-encoded-string-nz char-set)
   (matcher:at-least 1
-    (matcher:choice (uri-matcher:pct-encoded)
+    (matcher:choice uri-matcher:pct-encoded
                     (matcher:char-in-set char-set))))
 
-(define (uri-matcher:pct-encoded)
+(define-matcher uri-matcher:pct-encoded
   (matcher:sequence (matcher:char= #\%)
                     (matcher:char-in-set char-set:hex-digit)
                     (matcher:char-in-set char-set:hex-digit)))
@@ -820,11 +832,11 @@
 ;;; At least this is a nice example of how to easily make hairy parsers
 ;;; locally concise.
 
-(define (uri-matcher:ipv6-address)
+(define-matcher uri-matcher:ipv6-address
   (let ((seq matcher:sequence)
         (:: (matcher:sequence (matcher:char= #\:) (matcher:char= #\:)))
-        (h16 (uri-matcher:h16))
-        (ls32 (uri-matcher:ls32))
+        (h16 uri-matcher:h16)
+        (ls32 uri-matcher:ls32)
         (n-h16: uri-matcher:h16-exactly)
         (n*-h16: uri-matcher:h16-at-least)
         (? matcher:optional))
@@ -839,27 +851,27 @@
      (seq (? (n*-h16: 5))       ::                      h16)
      (seq (? (n*-h16: 6))       ::))))
 
-(define (uri-matcher:h16)
+(define-matcher uri-matcher:h16
   (matcher:between 1 4 (matcher:char-in-set char-set:hex-digit)))
 
-(define (uri-matcher:ls32)
+(define-matcher uri-matcher:ls32
   (matcher:deep-choice
-   (matcher:sequence (uri-matcher:h16)
+   (matcher:sequence uri-matcher:h16
                      (matcher:char= #\:)
-                     (uri-matcher:h16))
-   (uri-matcher:ipv4-address)))
+                     uri-matcher:h16)
+   uri-matcher:ipv4-address))
 
-(define (uri-matcher:h16-exactly number)
+(define-matcher (uri-matcher:h16-exactly number)
   (matcher:exactly number
-    (matcher:sequence (uri-matcher:h16)
+    (matcher:sequence uri-matcher:h16
                       (matcher:char= #\:))))
 
-(define (uri-matcher:h16-at-least number)
+(define-matcher (uri-matcher:h16-at-least number)
   (matcher:sequence
    (matcher:at-least number
-     (matcher:sequence (uri-matcher:h16)
+     (matcher:sequence uri-matcher:h16
                        (matcher:char= #\:)))
-   (uri-matcher:h16)))
+   uri-matcher:h16))
 
 ;;;; URI-Related Character Sets
 
@@ -921,6 +933,6 @@
         ((< value #x10) (ascii->char (+ value (char->ascii #\A))))
         (else (error "Invalid hex digit value:" value))))
 
-(define (parser:hex-digit)
-  (*parser ((char (parser:char-in-set char-set:hex-digit)))
+(define-parser uri-parser:hex-digit
+  (*parser (char (parser:char-in-set char-set:hex-digit))
     (parser:return (char->hex-digit char))))
