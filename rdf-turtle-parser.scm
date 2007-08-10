@@ -11,7 +11,7 @@
 (define-parser turtle-parser:document
   (parser:sequence
    (parser:noise:repeated-until (parser:end) turtle-parser:statement)
-   (parser:with-context turtle-context/triples)))
+   (parser:call-with-context turtle-context/triples)))
 
 (define-parser turtle-parser:statement
   (parser:choice (parser:sequence (parser:choice turtle-parser:directive
@@ -464,7 +464,7 @@
      (turtle-context/add-prefix-expansion context name expansion))))
 
 (define-parser (turtle:expand-prefix name)
-  (parser:with-context
+  (parser:call-with-context
    (lambda (context)
      (turtle-context/expand-prefix context name))))
 
