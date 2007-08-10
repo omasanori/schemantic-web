@@ -10,12 +10,12 @@
 ;;; <http://www.w3.org/TR/rdf-testcases/#ntriples>.
 
 (define-parser nt-parser:document
-  (parser:map (parser:repeated-until (parser:end)
-                  (lambda (item triples)
-                    (if item (cons item triples) triples))
-                  (parser:return '())
-                nt-parser:line)
-    reverse))
+  (parser:map reverse
+    (parser:repeated-until (parser:end)
+        (lambda (item triples)
+          (if item (cons item triples) triples))
+        (parser:return '())
+      nt-parser:line)))
 
 (define-parser nt-parser:line
   (*parser
