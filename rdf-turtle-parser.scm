@@ -8,10 +8,15 @@
 
 ;;; RDF Turtle is described at <http://www.dajobe.org/2004/01/turtle/>.
 
+;;; The parser uses the noise repetition operator because we pass each
+;;; triple off to a user-supplied triple handler, and any result is
+;;; accumulated in the user's state, rather than using the parser's
+;;; value to accumulate anything.
+
 (define-parser turtle-parser:document
   (parser:sequence
    (parser:noise:repeated-until (parser:end) turtle-parser:statement)
-   (parser:call-with-context turtle-context/triples)))
+   (parser:map turtle-context/user-state (parser:context))))
 
 (define-parser turtle-parser:statement
   (parser:choice (parser:sequence (parser:choice turtle-parser:directive
@@ -35,29 +40,18 @@
   (*parser
       (subject turtle-parser:subject)
       (turtle-parser:ws+)
-      (predicate/object-list turtle-parser:predicate/object-list)
-    (turtle:add-triples
-     (map (lambda (predicate/object)
-            (make-rdf-triple subject
-                             (car predicate/object)
-                             (cdr predicate/object)))
-          predicate/object-list))))
+    (turtle-parser:predicate/object-list subject)))
 
 ;;;; Predicate/Object Lists
 
-(define-parser turtle-parser:predicate/object-list
+(define-parser (turtle-parser:predicate/object-list subject)
   (*parser
       (predicate turtle-parser:verb)
       (turtle-parser:ws+)
-      (objects turtle-parser:object-list)
-      (predicate/object-list turtle-parser:predicate/object-list-continuation)
+      ((turtle-parser:object-list subject predicate))
+      ((turtle-parser:predicate/object-list-continuation subject))
       (turtle-parser:ws*)
-      ((parser:optional-noise (parser:char= #\;)))
-    (parser:return
-     (append (map (lambda (object)
-                    (cons predicate object))
-                  objects)
-             predicate/object-list))))
+    (parser:optional-noise (parser:char= #\;))))
 
 (define-parser turtle-parser:verb
   (parser:choice (parser:backtrackable
@@ -67,21 +61,19 @@
                     (parser:return rdf:type)))
                  turtle-parser:predicate))
 
-(define-parser turtle-parser:object-list
-  (*parser
-      (object turtle-parser:object)
-      (turtle-parser:ws*)
-      (objects
-       (parser:list:repeated
-        (*parser
-            ((parser:char= #\,))
-            (turtle-parser:ws*)
-            (object turtle-parser:object)
-            (turtle-parser:ws*)
-          (parser:return object))))
-    (parser:return (cons object objects))))
+(define-parser (turtle-parser:object-list subject predicate)
+  (let ((object-parser (turtle-parser:object->triple subject predicate)))
+    (*parser
+        (object-parser)
+        (turtle-parser:ws*)
+      (parser:noise:repeated
+       (*parser
+           ((parser:char= #\,))
+           (turtle-parser:ws*)
+           (object-parser)
+         turtle-parser:ws*)))))
 
-(define-parser turtle-parser:predicate/object-list-continuation
+(define-parser (turtle-parser:predicate/object-list-continuation subject)
   (parser:list:repeated
    (*parser
        (turtle-parser:ws*)
@@ -89,11 +81,11 @@
        (turtle-parser:ws*)
        (predicate turtle-parser:verb)
        (turtle-parser:ws+)
-       (objects turtle-parser:object-list)
-     (parser:return
-      (map (lambda (object)
-             (cons predicate object))
-           objects)))))
+     (turtle-parser:object-list subject predicate))))
+
+(define-parser (turtle-parser:object->triple subject predicate)
+  (*parser (object turtle-parser:object)
+    (turtle:add-triple (make-rdf-triple subject predicate object))))
 
 ;;;; Resources
 
@@ -248,23 +240,17 @@
 
 (define-parser turtle-parser:bnode:empty
   (parser:backtrackable
+   ;; This is a little silly, but the Turtle specification does not
+   ;; explictly allow a space between these brackets.
    (parser:sequence (parser:string= "[]") turtle:new-anonymous-bnode)))
 
 (define-parser turtle-parser:bnode:compound
-  (*parser
-      ((parser:char= #\[))
-      (turtle-parser:ws*)
-      (predicate/object-list turtle-parser:predicate/object-list)
-      (turtle-parser:ws*)              ;++ I think this is unnecessary.
-      ((parser:char= #\]))
-      (bnode turtle:new-anonymous-bnode)
-      ((turtle:add-triples
-        (map (lambda (predicate/object)
-               (make-rdf-triple bnode
-                                (car predicate/object)
-                                (cdr predicate/object)))
-             predicate/object-list)))
-    (parser:return bnode)))
+  (parser:bracketed
+      (parser:sequence (parser:char= #\[) turtle-parser:ws*)
+      (parser:sequence turtle-parser:ws* (parser:char= #\]))
+    (*parser (subject turtle:new-anonymous-bnode)
+        ((turtle-parser:predicate/object-list subject))
+      (parser:return subject))))
 
 ;;; The following ugliness is the obvious recursive parser translated
 ;;; by hand according to the tail recursion modulo CONS pattern.
@@ -277,9 +263,8 @@
      (*parser (bnode turtle:new-anonymous-bnode)
        (let loop ((pair bnode))
          (*parser
-             (first turtle-parser:object)
+             ((turtle-parser:object->triple pair rdf:first))
              (turtle-parser:ws*)
-             ((turtle:add-triple (make-rdf-triple pair rdf:first first)))
            (parser:choice
             (*parser
                 ((parser:char= #\) ))
@@ -403,30 +388,35 @@
                   (ucs-range->char-set #x203F #x2041)))
 
 (define-record-type <turtle-context>
-    (%make-turtle-context prefix-map triples bnode-number)
+    (%make-turtle-context triple-handler user-state prefix-map bnode-number)
     turtle-context?
+  (triple-handler turtle-context/triple-handler)
+  (user-state turtle-context/user-state)
   (prefix-map turtle-context/prefix-map)
-  (triples turtle-context/triples)
   (bnode-number turtle-context/bnode-number))
 
-(define (make-turtle-parser-context)
-  (%make-turtle-context '() '() 0))
+(define (make-turtle-parser-context triple-handler initial-user-state)
+  (%make-turtle-context triple-handler initial-user-state '() 0))
 
 (define (turtle-context/increment-bnode-number context)
-  (%make-turtle-context (turtle-context/prefix-map context)
-                        (turtle-context/triples context)
+  (%make-turtle-context (turtle-context/triple-handler context)
+                        (turtle-context/user-state context)
+                        (turtle-context/prefix-map context)
                         (+ 1 (turtle-context/bnode-number context))))
 
-(define (turtle-context/add-triples context triples)
-  (%make-turtle-context (turtle-context/prefix-map context)
-                        (append-reverse triples
-                                        (turtle-context/triples context))
+(define (turtle-context/add-triple context triple)
+  (%make-turtle-context (turtle-context/triple-handler context)
+                        ((turtle-context/triple-handler context)
+                         triple
+                         (turtle-context/user-state context))
+                        (turtle-context/prefix-map context)
                         (turtle-context/bnode-number context)))
 
 (define (turtle-context/add-prefix-expansion context name expansion)
-  (%make-turtle-context (cons (cons name expansion)
+  (%make-turtle-context (turtle-context/triple-handler context)
+                        (turtle-context/user-state context)
+                        (cons (cons name expansion)
                               (turtle-context/prefix-map context))
-                        (turtle-context/triples context)
                         (turtle-context/bnode-number context)))
 
 (define (turtle-context/expand-prefix context name)
@@ -439,6 +429,8 @@
              (and (not (car entry))
                   (cdr entry))))
        (turtle-context/prefix-map context)))
+
+;;;; Turtle Context-Related Parsers
 
 (define-parser turtle:new-anonymous-bnode
   (parser:extend (parser:context)
@@ -450,13 +442,10 @@
           (make-rdf-bnode
            (string-append "gen" (number->string number #d10)))))))))
 
-(define-parser (turtle:add-triples triples)
+(define-parser (turtle:add-triple triple)
   (parser:modify-context
    (lambda (context)
-     (turtle-context/add-triples context triples))))
-
-(define-parser (turtle:add-triple triple)
-  (turtle:add-triples (list triple)))
+     (turtle-context/add-triple context triple))))
 
 (define-parser (turtle:add-prefix-expansion name expansion)
   (parser:modify-context

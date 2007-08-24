@@ -12,10 +12,14 @@
 (define (test-turtle-file pathname loser)
   (parse-file turtle-parser:document
               pathname
-              (make-turtle-parser-context)
-              (lambda (triples context stream)
+              (make-turtle-parser-context
+               (lambda (triple graph)
+                 triple graph           ;ignore
+                 'DUMMY-RDF-GRAPH)
+               'DUMMY-RDF-GRAPH)
+              (lambda (graph context stream)
                 context stream          ;ignore
-                triples)
+                graph)
               (lambda (perror context stream)
                 context stream          ;ignore
                 (loser perror))))
