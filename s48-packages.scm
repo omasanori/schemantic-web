@@ -76,7 +76,10 @@
 (define-structure rdf rdf-interface
   (open scheme
         srfi-9                          ;define-record-type
+        (modify srfi-13                 ;string-lib
+                (alias (string-hash string-hash-mod)))
         srfi-23                         ;error
+        bitwise                         ; For hashing
         uris
         )
   (optimize auto-integrate)

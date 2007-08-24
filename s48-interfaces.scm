@@ -71,11 +71,18 @@
     rdf-triple/predicate
     rdf-triple/object
     rdf-triple=?
+    rdf-triple-hash
+    rdf-triple-hash-mod
+
+    rdf-subject=?       rdf-subject-hash        rdf-subject-hash-mod
+    rdf-predicate=?     rdf-predicate-hash      rdf-predicate-hash-mod
+    rdf-object=?        rdf-object-hash         rdf-object-hash-mod
 
     make-rdf-bnode
     rdf-bnode?
     rdf-bnode/name
     rdf-bnode=?
+    rdf-bnode-hash
 
     make-rdf-plain-literal
     make-rdf-typed-literal
@@ -86,11 +93,13 @@
     rdf-plain-literal/language-tag
     rdf-typed-literal/datatype-uri
     rdf-literal=?
+    rdf-literal-hash
 
     rdf-uri-ref?
     rdf-uri-ref->string
     string->rdf-uri-ref
     rdf-uri-ref=?
+    rdf-uri-ref-hash
     ))
 
 ;;;; Parsers
