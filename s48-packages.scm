@@ -123,7 +123,6 @@
         srfi-14                         ;Character-Set Library
         srfi-23                         ;Error
         ascii
-        uris
         uri-parser
         rdf
         matcher-combinators
@@ -153,7 +152,6 @@
         srfi-14                         ;Character-Set Library
         srfi-23                         ;Error
         ascii
-        uris
         uri-parser
         rdf
         matcher-combinators
