@@ -119,6 +119,7 @@
 (define-interface rdf-nt-parser-interface
   (export
     nt-parser:document
+    make-nt-parser-context
     ))
 
 (define-interface rdf-turtle-parser-interface

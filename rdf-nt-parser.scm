@@ -10,26 +10,20 @@
 ;;; <http://www.w3.org/TR/rdf-testcases/#ntriples>.
 
 (define-parser nt-parser:document
-  (parser:map reverse
-    (parser:repeated-until (parser:end)
-        (lambda (item triples)
-          (if item (cons item triples) triples))
-        (parser:return '())
-      nt-parser:line)))
+  (parser:sequence
+   (parser:noise:repeated nt-parser:line)
+   (parser:map nt-context/user-state (parser:context))))
 
 (define-parser nt-parser:line
   (*parser
       (nt-parser:ws*)
-      (item
-       (parser:choice nt-parser:comment nt-parser:triple (parser:return #f)))
-      (nt-parser:eoln)
-    (parser:return item)))
+      ((parser:choice nt-parser:comment nt-parser:triple (parser:return #f)))
+    nt-parser:eoln))
 
 (define-parser nt-parser:comment
   (parser:sequence
    (parser:char= #\#)
-   (parser:noise:repeated (parser:char-not-in-set nt-char-set:line-break))
-   (parser:return #f)))
+   (parser:noise:repeated (parser:char-not-in-set nt-char-set:line-break))))
 
 (define-parser nt-parser:triple
   (*parser
@@ -41,7 +35,7 @@
       (nt-parser:ws*)
       ((parser:char= #\.))
       (nt-parser:ws*)
-    (parser:return (make-rdf-triple subject predicate object))))
+    (nt:add-triple (make-rdf-triple subject predicate object))))
 
 (define-parser nt-parser:subject
   (parser:choice nt-parser:resource nt-parser:blank))
@@ -175,3 +169,25 @@
   (char-set-union char-set:letter
                   char-set:digit
                   (string->char-set "!#$&'()*+,-./:;=?@_~")))
+
+;;;; N-Triples Context
+
+(define-record-type <nt-context>
+    (make-nt-context triple-handler user-state)
+    nt-context?
+  (triple-handler nt-context/triple-handler)
+  (user-state nt-context/user-state))
+
+(define (make-nt-parser-context triple-handler initial-user-state)
+  (make-nt-context triple-handler initial-user-state))
+
+(define (nt-context/add-triple context triple)
+  (make-nt-context (nt-context/triple-handler context)
+                   ((nt-context/triple-handler context)
+                    triple
+                    (nt-context/user-state context))))
+
+(define-parser (nt:add-triple triple)
+  (parser:modify-context
+   (lambda (context)
+     (nt-context/add-triple context triple))))

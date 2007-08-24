@@ -44,10 +44,14 @@
   ;; that's too much work right now.
   (parse-file nt-parser:document
               "test.nt"
-              #f                        ;No context
-              (lambda (triples context stream)
-                triples context stream
-                'SUCCESS)
+              (make-nt-parser-context
+               (lambda (triple graph)
+                 triple graph           ;ignore
+                 'DUMMY-RDF-GRAPH)
+               'DUMMY-RDF-GRAPH)
+              (lambda (graph context stream)
+                context stream          ;ignore
+                graph)
               (lambda (perror context stream)
                 context stream          ;ignore
                 (apply error
