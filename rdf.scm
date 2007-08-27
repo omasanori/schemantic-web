@@ -230,7 +230,10 @@
    (bitwise-xor (string-hash-mod (rdf-literal/lexical-form literal) modulus)
                 (let ((annotation (rdf-literal/annotation literal)))
                   (case (rdf-literal/class literal)
-                    ((PLAIN) (string-hash-mod annotation modulus))
+                    ((PLAIN)
+                     (if annotation
+                         (string-hash-mod annotation modulus)
+                         (modulo #xDEADBEEF modulus)))
                     ((TYPED) (rdf-uri-ref-hash-mod annotation modulus))
                     (else (error "Illegal RDF literal:" literal)))))
    modulus))
@@ -240,6 +243,9 @@
   (bitwise-xor (string-hash (rdf-literal/lexical-form literal))
                (let ((annotation (rdf-literal/annotation literal)))
                  (case (rdf-literal/class literal)
-                   ((PLAIN) (string-hash annotation))
+                   ((PLAIN)
+                    (if annotation
+                        (string-hash annotation)
+                        #xCAFE))
                    ((TYPED) (rdf-uri-ref-hash annotation))
                    (else (error "Illegal RDF literal:" literal))))))
