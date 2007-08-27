@@ -930,7 +930,7 @@
 
 (define (hex-digit->char value)
   (cond ((< value #xA) (ascii->char (+ value (char->ascii #\0))))
-        ((< value #x10) (ascii->char (+ value (char->ascii #\A))))
+        ((< value #x10) (ascii->char (+ (- value #xA) (char->ascii #\A))))
         (else (error "Invalid hex digit value:" value))))
 
 (define-parser uri-parser:hex-digit
