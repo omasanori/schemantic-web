@@ -27,7 +27,7 @@ collection of tools for writing parsers in Scheme.  It is available at
 <http://mumble.net/~campbell/scheme/parscheme.tar.gz>, or by Darcs at
 <http://mumble.net/~campbell/darcs/parscheme/>.
 
-The Schemanic Web can be loaded into the following Scheme systems:
+The Schemantic Web can be loaded into the following Scheme systems:
 
 - Scheme48:
 
