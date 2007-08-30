@@ -10,6 +10,8 @@ This code is in a preliminary state, and only lightly tested.
 Currently it contains
 
 - a URI abstraction;
+- an RDF node abstraction;
+- an RDF graph abstraction, with two different implementations;
 - a minimal HTTP 1.0 client;
 - a SPARQL query generator;
 - a SPARQL-over-HTTP client;
@@ -84,6 +86,9 @@ Finally, the simple HTTP client requires networking support, which is
 highly dependent on the implementation.  Consequently, it is at present
 implemented for Scheme48 specifically in s48-http-client.scm, but
 implementing it in other Scheme systems is relatively straightforward.
+Also, one of the RDF graph implementations uses a mapping abstraction,
+which in Scheme48 is implemented using hash tables in s48-rdf-map.scm.
+This, too, is straightforward to implement alternatively.
 
 ** Documentation
 

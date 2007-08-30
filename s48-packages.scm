@@ -115,6 +115,89 @@
       (lambda (literal)
         (cons 'RDF-LITERAL (disclose-rdf-literal literal))))))
 
+;;;;; RDF Graph Structures
+
+(define-structure rdf-list-graphs rdf-graphs-interface
+  (open (modify scheme (hide member))   ; SRFI 1 redefines it.
+        srfi-1                          ;List Library
+        srfi-9                          ;define-record-types
+        rdf
+        )
+  (optimize auto-integrate)
+  (files rdf-list-graph))
+
+(define-structure rdf-simple-graphs rdf-graphs-interface
+  (open (modify scheme (hide member))   ; SRFI 1 redefines it
+        srfi-1                          ;List Library
+        srfi-9                          ;define-record-type
+        rdf
+        rdf-maps
+        foof-loop
+        nested-foof-loop
+        )
+  (optimize auto-integrate)
+  (files rdf-simple-graph))
+
+(define-structure rdf-maps-internal rdf-maps-internal-interface
+  (open scheme tables rdf foof-loop)
+  (optimize auto-integrate)
+  (files s48-rdf-map))
+
+;;; This is better than writing a number of definitions in
+;;; s48-rdf-map.scm, because any redefinitions will be reflected in
+;;; clients...in theory, anyway, if a certain bug weren't present in
+;;; Scheme48.
+
+(def rdf-maps
+  (modify rdf-maps-internal
+          ;; The modification commands are processed right-to-left.
+          (hide map/delete! map/insert! map/intern! map/lookup
+                map/search map/size map/update! map/modify! map/walk
+                in-map)
+          (alias
+           (map->alist rdf-object-map->alist)
+           (map/datum-list rdf-object-map/datum-list)
+           (map/delete! rdf-object-map/delete!)
+           (map/key-list rdf-object-map/key-list)
+           (map/insert! rdf-object-map/insert!)
+           (map/intern! rdf-object-map/intern!)
+           (map/lookup rdf-object-map/lookup)
+           (map/search rdf-object-map/search)
+           (map/size rdf-object-map/size)
+           (map/update! rdf-object-map/update!)
+           (map/modify! rdf-object-map/modify!)
+           (map/walk rdf-object-map/walk)
+           (in-map in-rdf-object-map)
+
+           (map->alist rdf-predicate-map->alist)
+           (map/datum-list rdf-predicate-map/datum-list)
+           (map/delete! rdf-predicate-map/delete!)
+           (map/key-list rdf-predicate-map/key-list)
+           (map/insert! rdf-predicate-map/insert!)
+           (map/intern! rdf-predicate-map/intern!)
+           (map/lookup rdf-predicate-map/lookup)
+           (map/search rdf-predicate-map/search)
+           (map/size rdf-predicate-map/size)
+           (map/update! rdf-predicate-map/update!)
+           (map/modify! rdf-predicate-map/modify!)
+           (map/walk rdf-predicate-map/walk)
+           (in-map in-rdf-predicate-map)
+
+           (map->alist rdf-subject-map->alist)
+           (map/datum-list rdf-subject-map/datum-list)
+           (map/delete! rdf-subject-map/delete!)
+           (map/key-list rdf-subject-map/key-list)
+           (map/insert! rdf-subject-map/insert!)
+           (map/intern! rdf-subject-map/intern!)
+           (map/lookup rdf-subject-map/lookup)
+           (map/search rdf-subject-map/search)
+           (map/size rdf-subject-map/size)
+           (map/update! rdf-subject-map/update!)
+           (map/modify! rdf-subject-map/modify!)
+           (map/walk rdf-subject-map/walk)
+           (in-map in-rdf-subject-map)
+           )))
+
 ;;;; RDF Parsers
 
 (define-structure rdf-nt-parser rdf-nt-parser-interface

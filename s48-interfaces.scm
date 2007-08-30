@@ -102,6 +102,109 @@
     rdf-uri-ref-hash
     ))
 
+;;;;; RDF Graphs and Maps
+
+(define-interface rdf-graphs-interface
+  (export
+    make-rdf-graph
+    rdf-graph?
+    rdf-graph/add-triple!
+    rdf-graph/all-objects
+    rdf-graph/all-predicates
+    rdf-graph/all-subjects
+    rdf-graph/all-triples
+    rdf-graph/for-each-matching-object
+    rdf-graph/for-each-matching-predicate
+    rdf-graph/for-each-matching-subject
+    rdf-graph/for-each-object
+    rdf-graph/for-each-predicate
+    rdf-graph/for-each-subject
+    rdf-graph/for-each-triple-by-object
+    rdf-graph/for-each-triple-by-predicate
+    rdf-graph/for-each-triple-by-subject
+    rdf-graph/for-each-triple
+    rdf-graph/matching-objects
+    rdf-graph/matching-predicates
+    rdf-graph/matching-subjects
+    rdf-graph/purge-matching-objects!
+    rdf-graph/purge-matching-predicates!
+    rdf-graph/purge-matching-subjects!
+    rdf-graph/purge-triples-by-object!
+    rdf-graph/purge-triples-by-predicate!
+    rdf-graph/purge-triples-by-subject!
+    rdf-graph/remove-triple!
+    rdf-graph/size
+    rdf-graph/triples-by-object
+    rdf-graph/triples-by-predicate
+    rdf-graph/triples-by-subject
+    ))
+
+(define-interface rdf-maps-internal-interface
+  (export
+    (in-map :syntax)
+    make-rdf-object-map
+    make-rdf-predicate-map
+    make-rdf-subject-map
+    map->alist
+    map/datum-list
+    map/delete!
+    map/key-list
+    map/insert!
+    map/intern!
+    map/lookup
+    map/modify!
+    map/search
+    map/size
+    map/update!
+    map/walk
+    ))
+
+(define-interface rdf-maps-interface
+  (export
+    (in-rdf-object-map :syntax)
+    (in-rdf-predicate-map :syntax)
+    (in-rdf-subject-map :syntax)
+    make-rdf-object-map
+    make-rdf-predicate-map
+    make-rdf-subject-map
+    rdf-object-map->alist
+    rdf-object-map/datum-list
+    rdf-object-map/delete!
+    rdf-object-map/key-list
+    rdf-object-map/insert!
+    rdf-object-map/intern!
+    rdf-object-map/lookup
+    rdf-object-map/modify!
+    rdf-object-map/search
+    rdf-object-map/size
+    rdf-object-map/update!
+    rdf-object-map/walk
+    rdf-predicate-map->alist
+    rdf-predicate-map/datum-list
+    rdf-predicate-map/delete!
+    rdf-predicate-map/key-list
+    rdf-predicate-map/insert!
+    rdf-predicate-map/intern!
+    rdf-predicate-map/lookup
+    rdf-predicate-map/modify!
+    rdf-predicate-map/search
+    rdf-predicate-map/size
+    rdf-predicate-map/update!
+    rdf-predicate-map/walk
+    rdf-subject-map->alist
+    rdf-subject-map/datum-list
+    rdf-subject-map/delete!
+    rdf-subject-map/key-list
+    rdf-subject-map/insert!
+    rdf-subject-map/intern!
+    rdf-subject-map/lookup
+    rdf-subject-map/modify!
+    rdf-subject-map/search
+    rdf-subject-map/size
+    rdf-subject-map/update!
+    rdf-subject-map/walk
+    ))
+
 ;;;; Parsers
 
 (define-interface uri-parser-interface
