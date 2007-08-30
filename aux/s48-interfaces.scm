@@ -77,3 +77,80 @@
     (with-extended-parameter-operators :syntax)
     (with-extended-parameter-operators* :syntax)
     ))
+
+(define-interface format-combinators-interface
+  (export
+    (define-format :syntax)
+    format:bracketed
+    format:bracketed-list
+    format:char
+    format:delayed
+    format:display
+    format:empty
+    format:indentation
+    format:indented-line
+    format:join
+    format:join/infix
+    format:join/prefix
+    format:join/suffix
+    format:line
+    format:line-break
+    format:line-start
+    format:list
+    format:named
+    format:non-breaking-space
+    format:number
+    format:number-with-radix
+    format:sequence
+    format:soft-break
+    format:string
+    format:with-indentation
+    ))
+
+(define-interface format-driver-interface
+  (export
+    format-options
+    format-to-port
+    format-to-string
+    format-with-char-handler
+    format-with-condensed-whitespace
+    format-with-indentation
+    format-with-indenter
+    format-with-line-break-handler
+    format-with-line-start-handler
+    format-with-line-tracking
+    format-with-property
+    format-with-soft-break-handler
+    format-with-string-handler
+    format-with-tab-width
+    space-indenter
+    tab-indenter
+    ))
+
+(define-interface format-state-interface
+  (export
+    apply-format
+    canonicalize-format
+    format-state?
+    format-state/insert-property
+    format-state/lookup-property
+    format-state/modify-property
+    format-state/property
+    format-state/search-property
+    format-state/string-handler
+    format-state/update-property
+    format-state-with-output-port
+    format->procedure
+    make-format-state
+    procedure->format
+    ))
+
+(define-interface pattern-matching-interface
+  (export
+    (match              :syntax)
+    (match-lambda       :syntax)
+    (match-lambda*      :syntax)
+    (match-let          :syntax)
+    (match-let*         :syntax)
+    (match-letrec       :syntax)
+    ))
