@@ -9,9 +9,9 @@
 (define-test-suite rdf-turtle-parser-tests
   "RDF Turtle Parser")
 
-(define (test-turtle-file pathname loser)
+(define (test-turtle-file name loser)
   (parse-file turtle-parser:document
-              pathname
+              (string-append "tests/rdf-turtle/" name ".ttl")
               (make-turtle-parser-context
                (lambda (triple graph)
                  triple graph           ;ignore
@@ -28,7 +28,7 @@
   (syntax-rules ()
     ((DEFINE-GOOD-TEST name)
      (DEFINE-TEST-CASE RDF-TURTLE-PARSER-TESTS name ()
-       (TEST-TURTLE-FILE (STRING-APPEND "tests/" name ".ttl")
+       (TEST-TURTLE-FILE name
                          (LAMBDA (PERROR)
                            (APPLY ERROR
                                   "Parse error:"
@@ -69,7 +69,7 @@
     ((DEFINE-BAD-TEST name)
      (DEFINE-TEST-CASE RDF-TURTLE-PARSER-TESTS name ()
        (TEST-PREDICATE PARSE-ERROR?
-         (TEST-TURTLE-FILE (STRING-APPEND "tests/" name ".ttl")
+                       (TEST-TURTLE-FILE name
                            (LAMBDA (PERROR) PERROR)))))))
 
 (define-bad-test "bad-00")
