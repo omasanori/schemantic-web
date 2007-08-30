@@ -29,6 +29,7 @@
 (define-structure sparql-examples sparql-examples-interface
   (open scheme
         sparql-http-client
+        rdf
         )
   (optimize auto-integrate)
   (files sparql))
