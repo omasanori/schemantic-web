@@ -147,8 +147,9 @@
 
 (define-parser turtle-parser:boolean
   (*parser (boolean
-            (parser:choice (parser:string= "true")
-                           (parser:string= "false")))
+            (parser:backtrackable
+             (parser:choice (parser:string= "true")
+                            (parser:string= "false"))))
     (parser:return (make-rdf-typed-literal boolean xsd:boolean))))
 
 ;;;;; Numbers
