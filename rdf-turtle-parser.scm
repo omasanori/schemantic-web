@@ -471,7 +471,7 @@
 (define rdf:nil (rdf: "nil"))
 
 (define xsd-prefix
-  "http://www.w3.org/2001/XMLSchema")
+  "http://www.w3.org/2001/XMLSchema#")
 
 (define (xsd: suffix)
   (string->rdf-uri-ref (string-append xsd-prefix suffix)))
