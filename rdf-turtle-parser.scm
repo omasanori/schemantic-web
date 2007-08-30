@@ -49,9 +49,7 @@
       (predicate turtle-parser:verb)
       (turtle-parser:ws+)
       ((turtle-parser:object-list subject predicate))
-      ((turtle-parser:predicate/object-list-continuation subject))
-      (turtle-parser:ws*)
-    (parser:optional-noise (parser:char= #\;))))
+    (turtle-parser:predicate/object-list-continuation subject)))
 
 (define-parser turtle-parser:verb
   (parser:choice (parser:backtrackable
@@ -74,14 +72,16 @@
          turtle-parser:ws*)))))
 
 (define-parser (turtle-parser:predicate/object-list-continuation subject)
-  (parser:list:repeated
+  (parser:optional-noise
    (*parser
-       (turtle-parser:ws*)
        ((parser:char= #\;))
        (turtle-parser:ws*)
-       (predicate turtle-parser:verb)
-       (turtle-parser:ws+)
-     (turtle-parser:object-list subject predicate))))
+     (parser:optional-noise
+      (*parser
+          (predicate turtle-parser:verb)
+          (turtle-parser:ws+)
+          ((turtle-parser:object-list subject predicate))
+        (turtle-parser:predicate/object-list-continuation subject))))))
 
 (define-parser (turtle-parser:object->triple subject predicate)
   (*parser (object turtle-parser:object)
