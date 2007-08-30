@@ -6,8 +6,7 @@ Semantic Web for portable Scheme.
 This file is written by Taylor R. Campbell and placed in the Public
 Domain.  All warranties are disclaimed.
 
-This code is in a preliminary state, and only lightly tested.
-Currently it contains
+This library contains
 
 - a URI abstraction;
 - an RDF node abstraction;
@@ -26,6 +25,11 @@ This code relies on Taylor R. Campbell's Parscheme library, a
 collection of tools for writing parsers in Scheme.  It is available at
 <http://mumble.net/~campbell/scheme/parscheme.tar.gz>, or by Darcs at
 <http://mumble.net/~campbell/darcs/parscheme/>.
+
+This code is lightly tested, in test suites found in files named
+`test-*.scm', supplied with data in the `tests/' subdirectory.  There
+is no documentation, yet, but there are some minimal examples beyond
+the test suites in the `examples/' subdirectory.
 
 The Schemantic Web can be loaded into the following Scheme systems:
 
