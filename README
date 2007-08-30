@@ -26,7 +26,12 @@ The Schemanic Web can be loaded into the following Scheme systems:
 
 - Scheme48:
 
-  Load s48-interfaces.scm and s48-packages.scm into the config package.
+  Load the following files into the config package:
+
+    aux/s48-interfaces.scm
+    aux/s48-packages.scm
+    s48-interfaces.scm
+    s48-packages.scm
 
 ** Portability
 
