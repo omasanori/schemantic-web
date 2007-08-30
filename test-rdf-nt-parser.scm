@@ -43,7 +43,7 @@
   ;; This should actually check that we got the right triples, but
   ;; that's too much work right now.
   (parse-file nt-parser:document
-              "test.nt"
+              "tests/rdf-nt/test.nt"
               (make-nt-parser-context
                (lambda (triple graph)
                  triple graph           ;ignore
