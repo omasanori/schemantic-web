@@ -10,6 +10,9 @@ This code is in a preliminary state, and only lightly tested.
 Currently it contains
 
 - a URI abstraction;
+- a minimal HTTP 1.0 client;
+- a SPARQL query generator;
+- a SPARQL-over-HTTP client;
 - an RDF N-Triples parser; and
 - an RDF Turtle parser.
 
@@ -76,6 +79,11 @@ The only other non-standard extensions are
   camps': (MAKE-STRING-INTERNMENT-CAMP), (INTERN <internment-camp>
   <string-key> <datum-generator>), (SOFT-INTERN <internment-camp>
   <string-key>); see packages.scm for an example definition).
+
+Finally, the simple HTTP client requires networking support, which is
+highly dependent on the implementation.  Consequently, it is at present
+implemented for Scheme48 specifically in s48-http-client.scm, but
+implementing it in other Scheme systems is relatively straightforward.
 
 ** Documentation
 

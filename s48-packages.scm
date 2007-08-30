@@ -176,3 +176,97 @@
   (files test-rdf-turtle-parser))
 
 ;; (define-structure rdf-xml-parser ...)
+
+;;;; SPARQL Client
+
+(define-structure sparql-format sparql-format-interface
+  (open scheme
+        srfi-1                          ;List Library
+        srfi-6                          ;Basic String Ports
+        srfi-13                         ;String Library
+        srfi-23                         ;error
+        uris
+        ascii
+        format-combinators
+        foof-loop
+        nested-foof-loop
+        )
+  (optimize auto-integrate)
+  (files sparql-format))
+
+(define-structure sparql-sexp sparql-sexp-interface
+  (open scheme
+        receiving
+        srfi-23                         ;error
+        (subset simple-signals (warn))  ;++ gnargh
+        uris
+        pattern-matching
+        foof-loop
+        format-driver
+        format-combinators
+        sparql-format
+        )
+  (files sparql-sexp))
+
+(define-structure sparql-sexp-tests (export sparql-sexp-tests)
+  (open scheme
+        simple-testing
+        sparql-sexp
+        format-combinators
+        format-driver
+        )
+  (optimize auto-integrate)
+  (files test-sparql-sexp))
+
+(define-structure sparql-results-ssax sparql-results-interface
+  (open scheme
+        srfi-23
+        pattern-matching
+        foof-loop
+        ssax-vanilla
+        rdf
+        )
+  (optimize auto-integrate)
+  (files sparql-results-ssax))
+
+(define sparql-results sparql-results-ssax)
+
+(define-structure sparql-http-client sparql-http-client-interface
+  (open scheme
+        simple-signals
+        simple-http-client
+        sparql-sexp
+        sparql-results
+        uris
+      )
+  (optimize auto-integrate)
+  (files sparql-http-client))
+
+(define-structure simple-http-client simple-http-client-interface
+  (open scheme
+        receiving
+        srfi-1                          ;List Library
+        srfi-6                          ;Basic String Ports
+        srfi-9                          ;define-record-type
+        srfi-13                         ;String Library
+        srfi-14                         ;Character Set Library
+        ascii
+        simple-signals
+        fluids
+        sockets
+        (subset i/o (write-string write-block read-block force-output))
+        uris
+        foof-loop
+        nested-foof-loop
+        laziness
+        lazy-streams
+        parser-combinators
+        text-parser-combinators
+        matcher-combinators
+        text-matcher-combinators
+        parse-errors
+        format-combinators
+        format-driver
+        )
+  (optimize auto-integrate)
+  (files s48-http-client))
