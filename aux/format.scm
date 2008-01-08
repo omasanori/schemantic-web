@@ -501,6 +501,15 @@
   (format:sequence left-bracket
                    (format:list format-list)
                    right-bracket))
+
+(define (format:call-with-output-port receiver)
+  (procedure->format
+   (lambda (state)
+     ((format-state/string-handler state)
+      state
+      (let ((output-port (open-output-string)))
+        (receiver output-port)
+        (get-output-string output-port))))))
 
 ;;;; Formatting Lists
 

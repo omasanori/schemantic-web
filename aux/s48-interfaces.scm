@@ -83,6 +83,7 @@
     (define-format :syntax)
     format:bracketed
     format:bracketed-list
+    format:call-with-output-port
     format:char
     format:delayed
     format:display
