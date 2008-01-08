@@ -6,7 +6,8 @@
 ;;; This code is written by Taylor R. Campbell and placed in the Public
 ;;; Domain.  All warranties are disclaimed.
 
-(define neurocommons-sparql-endpoint "http://hcls1.csail.mit.edu:8890/sparql/")
+(define neurocommons-sparql-endpoint
+  "http://sparql.neurocommons.org:8890/sparql/")
 
 (define (neurocommons query)
   (http-get-sparql neurocommons-sparql-endpoint query))
