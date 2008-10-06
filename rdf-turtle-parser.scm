@@ -6,7 +6,8 @@
 ;;; This code is written by Taylor R. Campbell and placed in the Public
 ;;; Domain.  All warranties are disclaimed.
 
-;;; RDF Turtle is described at <http://www.dajobe.org/2004/01/turtle/>.
+;;; The version of RDF Turtle parsed by this code is described at
+;;; <http://www.dajobe.org/2004/01/turtle/2006-09-11/>.
 
 ;;; The parser uses the noise repetition operator because we pass each
 ;;; triple off to a user-supplied triple handler, and any result is
